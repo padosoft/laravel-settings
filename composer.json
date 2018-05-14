@@ -1,0 +1,53 @@
+{
+    "name": "padosoft/laravel-settings",
+    "description": "Persistent settings with caching in Laravel.",
+    "license": "MIT",
+    "keywords": [
+        "padosoft",
+        "laravel-settings",
+        "laravel",
+        "settings",
+        "cache"
+    ],
+    "authors": [
+        {
+            "name": "Leonardo Padovani",
+            "email": "helpdesk@padosoft.com",
+            "homepage": "https://www.padosoft.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": ">=7.0.0",
+		"genealabs/laravel-model-caching": "^0.2.51",
+        "illuminate/support": ">=5.0 <6.0",
+        "illuminate/database": ">=5.0 <6.0",
+        "doctrine/dbal": "^2.6"
+    },
+    "require-dev": {
+	    "orchestra/testbench": "^3.2",
+        "phpunit/phpunit": "^5.0",
+        "mockery/mockery": "0.9.*",
+        "padosoft/test": "^0.2.2"
+    },
+    "autoload": {
+        "files": [
+            "src/helpers.php"
+        ],
+        "psr-4": {
+            "Padosoft\\Laravel\\Settings\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "aliases": {
+                "SettingsManager": "Padosoft\\Laravel\\Settings\\Facade"
+            },
+            "providers": [
+                "Padosoft\\Laravel\\Settings\\ServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
