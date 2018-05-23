@@ -19,16 +19,15 @@
     ],
     "require": {
         "php": ">=7.0.0",
-		"genealabs/laravel-model-caching": "^0.2.51",
-        "illuminate/support": ">=5.0 <6.0",
+        "illuminate/contracts": ">=5.0 <6.0",
+        "illuminate/encryption": ">=5.0 <6.0",
+        "doctrine/dbal": "^2.6",
         "illuminate/database": ">=5.0 <6.0",
-        "doctrine/dbal": "^2.6"
+        "genealabs/laravel-model-caching": "^0.2.57"
     },
     "require-dev": {
-	    "orchestra/testbench": "^3.2",
-        "phpunit/phpunit": "^5.0",
-        "mockery/mockery": "0.9.*",
-        "padosoft/test": "^0.2.2"
+        "orchestra/testbench": "~3.3.0|~3.4.2|^3.5.0",
+        "mockery/mockery": "^1.1"
     },
     "autoload": {
         "files": [
@@ -37,6 +36,14 @@
         "psr-4": {
             "Padosoft\\Laravel\\Settings\\": "src/"
         }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Padosoft\\Laravel\\Settings\\Test\\": "tests"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
     },
     "extra": {
         "laravel": {

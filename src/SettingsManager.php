@@ -6,7 +6,9 @@
 namespace Padosoft\Laravel\Settings;
 
 use Padosoft\Laravel\Settings\Settings;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Contracts\Encryption\DecryptException;
+use Padosoft\Laravel\Settings\Exceptions\DecryptException as SettingsDecryptException;
 
 class SettingsManager
 {
@@ -30,15 +32,28 @@ class SettingsManager
     public function get($key, $default = null)
     {
         if (array_key_exists($key, $this->settings)) {
-            return $this->settings[$key];
+            return $this->getMemoryValue($key);
         }
         $appo = $this->getModel($key);
-        $this->settings[$key] = $default;
+        $this->set($key, $default);
         if (!is_null($appo)) {
-            $this->settings[$key] = $appo->value;
+            $this->set($key, $appo->value);
         }
 
-        return $this->settings[$key];
+        return $this->getMemoryValue($key);
+    }
+
+    protected function getMemoryValue($key)
+    {
+        if (!is_array(config('padosoft-settings.encrypted_keys')) || !in_array($key,
+                config('padosoft-settings.encrypted_keys'))) {
+            return $this->settings[$key];
+        }
+        try {
+            return Crypt::decrypt($this->settings[$key]);
+        } catch (DecryptException $e) {
+            throw new SettingsDecryptException('unable to decrypt value.Maybe you have changed your app.key or padosoft-settings.encrypted_keys without updating database values');
+        }
     }
 
     /**
@@ -51,6 +66,10 @@ class SettingsManager
      */
     public function set($key, $valore)
     {
+        if (is_array(config('padosoft-settings.encrypted_keys')) && in_array($key,
+                config('padosoft-settings.encrypted_keys'))) {
+            $valore = Crypt::encrypt($valore);
+        }
         $this->settings[$key] = $valore;
 
         return $this;
@@ -63,7 +82,9 @@ class SettingsManager
     public function store()
     {
         foreach ($this->settings as $key => $valore) {
-            Settings::disableCache()->where('key', $key)->update(['value' => $valore]);
+            $model = $this->getModel($key, true);
+            $model->value = $this->getMemoryValue($key);
+            $model->save();
         }
 
         return $this;
@@ -103,7 +124,7 @@ class SettingsManager
 
     public function loadOnStartUp()
     {
-        if (!config('padosoft-settings.enabled',false)) {
+        if (!config('padosoft-settings.enabled', false)) {
             return;
         }
         $settings = Settings::select('value', 'key')
@@ -112,7 +133,7 @@ class SettingsManager
         foreach ($settings as $setting) {
             $key = $setting->key;
             $value = $setting->value;
-            $this->settings[$key] = $value;
+            $this->set($key,$value);
         }
     }
 
@@ -121,14 +142,14 @@ class SettingsManager
      */
     public function overrideConfig()
     {
-        if (!config('padosoft-settings.enabled',false)) {
+        if (!config('padosoft-settings.enabled', false)) {
             return;
         }
         $settings = Settings::select('value', 'config_override')
                             ->where('config_override', '<>', '')
                             ->get();
         foreach ($settings as $setting) {
-            $keys = explode('|',$setting->config_override);
+            $keys = explode('|', $setting->config_override);
             $value = $setting->value;
             foreach ($keys as $key) {
                 if (\is_bool(config($key))) {

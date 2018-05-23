@@ -41,6 +41,7 @@ return [
       */
 
     \'enabled\'=>true,
+    \'encrypted_keys\'=>[],
 ];');
     }
 

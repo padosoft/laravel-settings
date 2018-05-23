@@ -14,4 +14,5 @@ return [
       */
 
     'enabled'=>false,
+    'encrypted_keys'=>[],
 ];
