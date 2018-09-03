@@ -7,20 +7,20 @@ Persistent on database, application-wide settings for Laravel.
 Performance are not invalidated because settings are automatic cached when retrived from database.
 
 ## Installation 
-
-1. add to your composer json in the repository section like this
-
-
-		"repositories": [
-        {
-            "type": "git",
-            "url": "https://bitbucket.org/padosoft/laravel-settings"
-        }
-    ]
     
-2. `composer require padosoft/laravel-settings`
-3. Publish the config file by running `php artisan vendor:publish --provider="Padosoft\Laravel\Settings\ServiceProvider" --tag="config"`. 
+1. `composer require padosoft/laravel-settings`
+2. Publish the config and migration files by running `php artisan vendor:publish --provider="Padosoft\Laravel\Settings\ServiceProvider"`.
+3. Run `php artisan migrate`
+ 
+**Before running the migrations be sure you have in your `AppServiceProviders.php` the following lines:** 
+```php
+use Illuminate\Support\Facades\Schema;
 
+public function boot()
+{
+    Schema::defaultStringLength(191);
+}
+```
 ## Installation - Laravel < 5.5
 
 4. Add `Padosoft\Laravel\Settings\ServiceProvider` to the array of providers in `config/app.php`.
