@@ -23,7 +23,7 @@
         "illuminate/encryption": ">=5.0 <6.0",
         "doctrine/dbal": "^2.6",
         "illuminate/database": ">=5.0 <6.0",
-        "genealabs/laravel-model-caching": "^0.2.57"
+        "genealabs/laravel-model-caching": ">=0.2.57 <=0.3.1"
     },
     "require-dev": {
         "orchestra/testbench": "~3.3.0|~3.4.2|^3.5.0",
