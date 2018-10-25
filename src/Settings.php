@@ -13,7 +13,7 @@ class Settings extends Model
     use Cachable;
 
     protected $dates = ['created_at', 'updated_at'];
-	$guarded = ['created_at', 'updated_at'];
+    protected $guarded = ['created_at', 'updated_at'];
 
     /**
      * Set the value attribute.
