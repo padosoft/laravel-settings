@@ -10,7 +10,7 @@ use Orchestra\Testbench\TestCase as Orchestra;
 abstract class TestCase extends Orchestra
 {
 
-    public function setUp()
+    public function setUp() : void
     {
 
         parent::setUp();
@@ -18,7 +18,7 @@ abstract class TestCase extends Orchestra
         $this->setUpDatabase($this->app);
     }
 
-    protected function tearDown()
+    protected function tearDown() : void
     {
         //remove created path during test
         //$this->removeCreatedPathDuringTest(__DIR__);
