@@ -20,11 +20,11 @@ class Settings extends Model
      *
      * @param  string $value
      *
-     * @return string
+     * @return void
      */
     public function setValueAttribute($value)
     {
-        if (is_array(config('padosoft-settings.encrypted_keys')) && in_array($this->attributes['key'],
+        if (is_array(config('padosoft-settings.encrypted_keys')) && array_key_exists('key',$this->attributes) && in_array($this->attributes['key'],
                 config('padosoft-settings.encrypted_keys'))) {
             $this->attributes['value'] = Crypt::encrypt($value);
         } else {
@@ -42,7 +42,7 @@ class Settings extends Model
      */
     public function getValueAttribute($value)
     {
-        if (!is_array(config('padosoft-settings.encrypted_keys')) || !in_array($this->attributes['key'],
+        if (!is_array(config('padosoft-settings.encrypted_keys')) || !array_key_exists('key',$this->attributes)  || !in_array($this->attributes['key'],
                 config('padosoft-settings.encrypted_keys'))) {
             return $value;
         }

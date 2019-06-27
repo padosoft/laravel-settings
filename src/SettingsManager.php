@@ -133,7 +133,7 @@ class SettingsManager
         foreach ($settings as $setting) {
             $key = $setting->key;
             $value = $setting->value;
-            $this->set($key,$value);
+            $this->set($key, $value);
         }
     }
 
@@ -145,7 +145,7 @@ class SettingsManager
         if (!config('padosoft-settings.enabled', false)) {
             return;
         }
-        $settings = Settings::select('value', 'config_override')
+        $settings = Settings::select('value', 'key', 'config_override')
                             ->where('config_override', '<>', '')
                             ->get();
         foreach ($settings as $setting) {
