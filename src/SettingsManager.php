@@ -5,7 +5,6 @@
 
 namespace Padosoft\Laravel\Settings;
 
-use Padosoft\Laravel\Settings\Settings;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Padosoft\Laravel\Settings\Exceptions\DecryptException as SettingsDecryptException;
@@ -17,8 +16,9 @@ class SettingsManager
 
     public function __construct()
     {
-        $this->loadOnStartUp();
-        $this->overrideConfig();
+        //$this->loadOnStartUp();
+        //$this->overrideConfig();
+
     }
 
     /**
@@ -45,6 +45,10 @@ class SettingsManager
 
     protected function getMemoryValue($key)
     {
+        if (!array_key_exists($key, $this->settings)) {
+            return null;
+        }
+
         if (!is_array(config('padosoft-settings.encrypted_keys')) || !in_array($key,
                 config('padosoft-settings.encrypted_keys'))) {
             return $this->settings[$key];
@@ -83,6 +87,9 @@ class SettingsManager
     {
         foreach ($this->settings as $key => $valore) {
             $model = $this->getModel($key, true);
+            if ($model === null) {
+                continue;
+            }
             $model->value = $this->getMemoryValue($key);
             $model->save();
         }
@@ -127,6 +134,7 @@ class SettingsManager
         if (!config('padosoft-settings.enabled', false)) {
             return;
         }
+
         $settings = Settings::select('value', 'key')
                             ->where('load_on_startup', '=', 1)
                             ->get();
@@ -135,6 +143,7 @@ class SettingsManager
             $value = $setting->value;
             $this->set($key, $value);
         }
+
     }
 
     /**
