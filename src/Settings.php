@@ -50,7 +50,7 @@ class Settings extends Model
         try {
             return Crypt::decrypt($value);
         } catch (DecryptException $e) {
-            throw new SettingsDecryptException('unable to decrypt value.Maybe you have changed your app.key or padosoft-settings.encrypted_keys without updating database values');
+            throw new SettingsDecryptException('unable to decrypt value. Maybe you have changed your app.key or padosoft-settings.encrypted_keys without updating database values');
         }
     }
 }
