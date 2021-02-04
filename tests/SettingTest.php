@@ -15,6 +15,22 @@ class SettingTest extends TestCase
     }
 
     /** @test */
+    public function hasSettings()
+    {
+        $this->assertTrue(hasDbSettingsTable());
+    }
+
+    /** @test */
+    public function settingsManagerCanLoadOnStartup()
+    {
+        $returnValue = \SettingsManager::loadOnStartUp();
+        $this->assertTrue($returnValue);
+
+        $returnValue = \SettingsManager::overrideConfig();
+        $this->assertTrue($returnValue);
+    }
+
+    /** @test */
     public function canCreateSetting()
     {
         /*
@@ -27,7 +43,7 @@ class SettingTest extends TestCase
         $model->key = 'test';
         $model->value = 'test_value';
 
-        $ret = $model->save();
+        $model->save();
         $this->assertDatabaseHas('settings', [
             'key' => 'test'
         ]);
@@ -46,7 +62,7 @@ class SettingTest extends TestCase
         $model->key = 'test';
         $model->value = 'test_value';
 
-        $ret = $model->save();
+        $model->save();
         $this->assertDatabaseHas('settings', [
             'key' => 'test'
         ]);
@@ -68,7 +84,7 @@ class SettingTest extends TestCase
         $model = new Settings();
         $model->key = 'test';
         $model->value = 'test_value';
-        $ret = $model->save();
+        $model->save();
         $this->assertDatabaseHas('settings', [
             'key' => 'test'
         ]);
@@ -92,7 +108,7 @@ class SettingTest extends TestCase
         $model = new Settings();
         $model->key = 'test';
         $model->value = 'test_value';
-        $ret = $model->save();
+        $model->save();
         $this->assertDatabaseHas('settings', [
             'key' => 'test',
             'value' => 'test_value',

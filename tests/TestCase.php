@@ -40,6 +40,13 @@ abstract class TestCase extends Orchestra
         ];
     }
 
+    protected function getPackageAliases($app)
+    {
+        return [
+            'SettingsManager' => 'Padosoft\Laravel\Settings\Facade',
+        ];
+    }
+
     /**
      * @param Application $app
      */

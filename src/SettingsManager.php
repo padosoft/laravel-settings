@@ -131,8 +131,8 @@ class SettingsManager
 
     public function loadOnStartUp()
     {
-        if (!config('padosoft-settings.enabled', false)) {
-            return;
+        if (!hasDbSettingsTable() && !config('padosoft-settings.enabled', false)) {
+            return false;
         }
 
         $settings = Settings::select('value', 'key')
@@ -144,6 +144,7 @@ class SettingsManager
             $this->set($key, $value);
         }
 
+        return true;
     }
 
     /**
@@ -151,8 +152,8 @@ class SettingsManager
      */
     public function overrideConfig()
     {
-        if (!config('padosoft-settings.enabled', false)) {
-            return;
+        if (!hasDbSettingsTable() && !config('padosoft-settings.enabled', false)) {
+            return false;
         }
         $settings = Settings::select('value', 'key', 'config_override')
                             ->where('config_override', '<>', '')
@@ -168,5 +169,7 @@ class SettingsManager
                 config([$key => $value]);
             }
         }
+
+        return true;
     }
 }

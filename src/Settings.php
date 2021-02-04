@@ -2,10 +2,10 @@
 
 namespace Padosoft\Laravel\Settings;
 
-use Illuminate\Database\Eloquent\Model;
 use GeneaLabs\LaravelModelCaching\Traits\Cachable;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Crypt;
 use Padosoft\Laravel\Settings\Exceptions\DecryptException as SettingsDecryptException;
 
 class Settings extends Model
@@ -50,7 +50,7 @@ class Settings extends Model
         try {
             return Crypt::decrypt($value);
         } catch (DecryptException $e) {
-            throw new SettingsDecryptException('unable to decrypt value.Maybe you have changed your app.key or padosoft-settings.encrypted_keys without updating database values');
+            throw new SettingsDecryptException('Unable to decrypt value. Maybe you have changed your app.key or padosoft-settings.encrypted_keys without updating database values.');
         }
     }
 }
