@@ -131,7 +131,7 @@ class SettingsManager
 
     public function loadOnStartUp()
     {
-        if (!hasDbSettingsTable() && !config('padosoft-settings.enabled', false)) {
+        if (!hasDbSettingsTable() || !config('padosoft-settings.enabled', false)) {
             return false;
         }
 
@@ -152,7 +152,7 @@ class SettingsManager
      */
     public function overrideConfig()
     {
-        if (!hasDbSettingsTable() && !config('padosoft-settings.enabled', false)) {
+        if (!hasDbSettingsTable() || !config('padosoft-settings.enabled', false)) {
             return false;
         }
         $settings = Settings::select('value', 'key', 'config_override')
