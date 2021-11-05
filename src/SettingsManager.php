@@ -5,7 +5,6 @@
 
 namespace Padosoft\Laravel\Settings;
 
-use Padosoft\Laravel\Settings\Settings;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Padosoft\Laravel\Settings\Exceptions\DecryptException as SettingsDecryptException;
@@ -17,8 +16,9 @@ class SettingsManager
 
     public function __construct()
     {
-        $this->loadOnStartUp();
-        $this->overrideConfig();
+        //$this->loadOnStartUp();
+        //$this->overrideConfig();
+
     }
 
     /**
@@ -45,6 +45,10 @@ class SettingsManager
 
     protected function getMemoryValue($key)
     {
+        if (!array_key_exists($key, $this->settings)) {
+            return null;
+        }
+
         if (!is_array(config('padosoft-settings.encrypted_keys')) || !in_array($key,
                 config('padosoft-settings.encrypted_keys'))) {
             return $this->settings[$key];
@@ -83,6 +87,9 @@ class SettingsManager
     {
         foreach ($this->settings as $key => $valore) {
             $model = $this->getModel($key, true);
+            if ($model === null) {
+                continue;
+            }
             $model->value = $this->getMemoryValue($key);
             $model->save();
         }
@@ -124,17 +131,20 @@ class SettingsManager
 
     public function loadOnStartUp()
     {
-        if (!config('padosoft-settings.enabled', false)) {
-            return;
+        if (!hasDbSettingsTable() || !config('padosoft-settings.enabled', false)) {
+            return false;
         }
+
         $settings = Settings::select('value', 'key')
                             ->where('load_on_startup', '=', 1)
                             ->get();
         foreach ($settings as $setting) {
             $key = $setting->key;
             $value = $setting->value;
-            $this->set($key,$value);
+            $this->set($key, $value);
         }
+
+        return true;
     }
 
     /**
@@ -142,10 +152,10 @@ class SettingsManager
      */
     public function overrideConfig()
     {
-        if (!config('padosoft-settings.enabled', false)) {
-            return;
+        if (!hasDbSettingsTable() || !config('padosoft-settings.enabled', false)) {
+            return false;
         }
-        $settings = Settings::select('value', 'config_override')
+        $settings = Settings::select('value', 'key', 'config_override')
                             ->where('config_override', '<>', '')
                             ->get();
         foreach ($settings as $setting) {
@@ -159,5 +169,7 @@ class SettingsManager
                 config([$key => $value]);
             }
         }
+
+        return true;
     }
 }

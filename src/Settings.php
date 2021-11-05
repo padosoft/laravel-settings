@@ -2,14 +2,15 @@
 
 namespace Padosoft\Laravel\Settings;
 
-use Illuminate\Database\Eloquent\Model;
 use GeneaLabs\LaravelModelCaching\Traits\Cachable;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Crypt;
 use Padosoft\Laravel\Settings\Exceptions\DecryptException as SettingsDecryptException;
 
 class Settings extends Model
 {
+
     use Cachable;
 
     protected $dates = ['created_at', 'updated_at'];
@@ -20,11 +21,11 @@ class Settings extends Model
      *
      * @param  string $value
      *
-     * @return string
+     * @return void
      */
     public function setValueAttribute($value)
     {
-        if (is_array(config('padosoft-settings.encrypted_keys')) && in_array($this->attributes['key'],
+        if (is_array(config('padosoft-settings.encrypted_keys')) && array_key_exists('key',$this->attributes) && in_array($this->attributes['key'],
                 config('padosoft-settings.encrypted_keys'))) {
             $this->attributes['value'] = Crypt::encrypt($value);
         } else {
@@ -42,14 +43,14 @@ class Settings extends Model
      */
     public function getValueAttribute($value)
     {
-        if (!is_array(config('padosoft-settings.encrypted_keys')) || !in_array($this->attributes['key'],
+        if (!is_array(config('padosoft-settings.encrypted_keys')) || !array_key_exists('key',$this->attributes)  || !in_array($this->attributes['key'],
                 config('padosoft-settings.encrypted_keys'))) {
             return $value;
         }
         try {
             return Crypt::decrypt($value);
         } catch (DecryptException $e) {
-            throw new SettingsDecryptException('unable to decrypt value.Maybe you have changed your app.key or padosoft-settings.encrypted_keys without updating database values');
+            throw new SettingsDecryptException('Unable to decrypt value. Maybe you have changed your app.key or padosoft-settings.encrypted_keys without updating database values.');
         }
     }
 }

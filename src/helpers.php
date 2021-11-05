@@ -25,3 +25,22 @@ if (!function_exists('settings')) {
     }
 
 }
+
+
+if (!function_exists('hasDbSettingsTable')) {
+    /**
+     * Get the specified settings value.
+     *
+     * If null is passed as the key, return SettingManager object.
+     *
+     * @param  string $key
+     * @param  mixed $default
+     *
+     * @return mixed
+     */
+    function hasDbSettingsTable()
+    {
+        return \Schema::hasTable('settings');
+    }
+
+}
