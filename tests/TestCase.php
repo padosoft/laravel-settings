@@ -92,6 +92,8 @@ abstract class TestCase extends Orchestra
         (new \CreateSettingsTable())->up();
         include_once __DIR__ . '/../src/Migrations/2018_04_11_164012_update_settings_table.php';
         (new \UpdateSettingsTable())->up();
+        include_once __DIR__ . '/../src/Migrations/2021_11_06_164212_add_validation_rules_table.php';
+        (new \AddValidationRulesTable())->up();
         $app['config']->set('padosoft-settings.enabled', true);
     }
 }
