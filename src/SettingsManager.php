@@ -150,7 +150,7 @@ class SettingsManager
      *
      * @return \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Model|object|Padosoft\Laravel\Settings\Settings|null
      */
-    public function getModel($key, bool $disableCache)
+    public function getModel($key, $disableCache = false)
     {
         $query = Settings::query();
         if ($disableCache) {
