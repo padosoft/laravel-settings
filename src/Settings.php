@@ -72,11 +72,16 @@ class Settings extends Model
 
     protected function validate($value, $validation_rules)
     {
+
         if ($validation_rules === '' || $validation_rules === null) {
             return $value;
         }
+        $rule = $validation_rules;
+        if (str_contains($validation_rules,'regex:')){
+            $rule=array($validation_rules);
+        }
         try {
-            Validator::make(['value' => $value], ['value' => $validation_rules])->validate();
+            Validator::make(['value' => $value], ['value' => $rule])->validate();
             return $value;
         } catch (ValidationException $e) {
             throw new \Exception($value . ' is not a valid value.' . 'line:' . $e->getLine());
