@@ -38,9 +38,10 @@ class SettingsManager
             return settings()->getMemoryValue($key);
         }
         $appo = settings()->getModel($key);
-        settings()->set($key, $default, '');
         if (!is_null($appo)) {
             settings()->set($key, $appo->value, is_null($appo->validation_rules) ? null : $appo->validation_rules);
+        } else {
+            settings()->set($key, $default, '');
         }
 
         return settings()->getMemoryValue($key);
@@ -93,7 +94,8 @@ class SettingsManager
      */
     public function set($key, $value, $validation_rule = null)
     {
-        settings()->validate($value, $validation_rule);
+        //Tolta validazione perchè è validato a basso livello sul model
+        //settings()->validate($value, $validation_rule);
         if (
             is_array(config('padosoft-settings.encrypted_keys')) && in_array(
                 $key,

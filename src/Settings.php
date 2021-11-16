@@ -19,6 +19,8 @@ class Settings extends Model
     public const PATTERN_MULTIPLE_NUMERIC_LIST_COMMA = '(^[0-9,]+$)|(^.{0}$)';
     public const PATTERN_MULTIPLE_NUMERIC_LIST_PIPE = '(^[0-9|]+$)|(^.{0}$)';
 
+    protected bool $validateNow = true;
+
     protected $dates = ['created_at', 'updated_at'];
     protected $guarded = ['created_at', 'updated_at'];
 
@@ -72,13 +74,13 @@ class Settings extends Model
 
     protected function validate($value, $validation_rules)
     {
-
-        if ($validation_rules === '' || $validation_rules === null) {
+        //Se non esiste validazione o se la validazione è disattivata restituisce il valore
+        if ($validation_rules === '' || $validation_rules === null || $this->validateNow === false) {
             return $value;
         }
         $rule = $validation_rules;
-        if (str_contains($validation_rules,'regex:')){
-            $rule=array($validation_rules);
+        if (str_contains($validation_rules, 'regex:')) {
+            $rule = array($validation_rules);
         }
         try {
             Validator::make(['value' => $value], ['value' => $rule])->validate();
@@ -86,6 +88,55 @@ class Settings extends Model
         } catch (ValidationException $e) {
             throw new \Exception($value . ' is not a valid value.' . 'line:' . $e->getLine());
         }
+    }
+
+    /**
+     * @param $value
+     * @param $validation_rules
+     * @return bool|int|string[]
+     */
+    protected function cast($value, $validation_rules)
+    {
+        switch ($validation_rules) {
+            case 'boolean':
+                return $value === '0' ? false : true;
+            case 'numeric':
+                return (int)$value;
+            case $this::PATTERN_MULTIPLE_NUMERIC_LIST_SEMICOLON:
+                return explode(';', $value);
+        }
+        return $value;
+    }
+
+
+
+    /**
+     * Restituisce il valore senza validarlo
+     * @return int|mixed|string
+     */
+    public function getValueRawAttribute()
+    {
+        //Disabilita la validazione
+        $this->validateNow = false;
+        //Richiede il valore che non viene validato
+        $value = $this->value;
+        //Riabilita la validazione
+        $this->validateNow = true;
+        return $value;
+    }
+
+    /**
+     * Restituisce true se il valore è valido, false se il valore non è valido
+     * @return bool
+     */
+    public function getIsValidAttribute(): bool
+    {
+        try {
+            $ck = $this->value;
+        } catch (\Exception $e) {
+            return false;
+        }
+        return true;
     }
 
     /**
