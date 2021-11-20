@@ -58,81 +58,78 @@ class Settings extends Model
                 config('padosoft-settings.encrypted_keys')
             )
         ) {
-            return $value;
+            return $this->validate($value);
         }
         try {
-            return Crypt::decrypt($value);
+            return Crypt::decrypt($this->validate($value));
         } catch (DecryptException $e) {
             throw new SettingsDecryptException('Unable to decrypt value. Maybe you have changed your app.key or padosoft-settings.encrypted_keys without updating database values.');
         }
     }
 
-
     /**
-     * Get the value attribute.
-     *
-     * @param  string $value
-     *
-     * @return string
+     * Valida il record corrente secondo le regole presenti in validation_rules
+     * @return bool|int|mixed|string|string[]
+     * @throws \Exception
      */
-    public function getValueValidatedAttribute()
-    {
-        return $this->validate();
-    }
-
-    protected function validate()
+    protected function validate($value)
     {
         //Se non esiste validazione o se la validazione è disattivata restituisce il valore
         if ($this->validation_rules === '' || $this->validation_rules === null || $this->validateNow === false) {
-            return $this->value;
+            return $value;
         }
+
         $rule = $this->validation_rules;
         //recupera la validazione dal config se presente
-        if(config('padosoft-settings.cast.'.$rule.'.validate')!==null){
-            $rule = config('padosoft-settings.cast.'.$rule.'.validate');
+        //il valore validate non è obbligatorio può essere un valore utilizzabile con Validate o un regex
+        if (config('padosoft-settings.cast.' . $rule . '.validate') !== null) {
+            $rule = config('padosoft-settings.cast.' . $rule . '.validate');
         }
-        //Se regex trasforma in array
+        //Se regex trasforma in array altrimenti crea un array esplodendo sul carattere pipe
         if (str_contains($rule, 'regex:')) {
             $rule = array($rule);
-        }else
-        //Altrimenti crea un array sul carattere pipe
-        {
-            $rule = explode('|',$rule);
+        } else {
+            $rule = explode('|', $rule);
         }
         try {
-            Validator::make(['value' => $this->value], ['value' => $rule])->validate();
-            return $this->cast();
+            Validator::make(['value' => $value], ['value' => $rule])->validate();
+            //Effettua un cast dinamico del valore
+            return $this->cast($value);
         } catch (ValidationException $e) {
-            throw new \Exception($this->value . ' is not a valid value.' . 'line:' . $e->getLine());
+            throw new \Exception($value . ' is not a valid value.' . 'line:' . $e->getLine());
         }
     }
 
     /**
-     * @param $value
-     * @param $validation_rules
-     * @return bool|int|string[]
+     * Effettua un cast dinamico di value
+     * Il tipo di cast da utilizzare viene recuperato se presente da config
+     * Se non trova il valore da config cerca nei tipi di cast base più comuni
+     * I cast possono essere sovrascritti da config
+     * @return bool|float|\Illuminate\Support\Collection|int|mixed|object|string
+     * @throws \Exception
      */
-    protected function cast()
+    protected function cast($value)
     {
-        $cast = config('padosoft-settings.cast.'.$this->validation_rules);
+        $cast = config('padosoft-settings.cast.' . $this->validation_rules);
         //Se esiste la classe e il metodo indicati per il cast in config li utilizza
         //Altrimenti prosegue.
-        $class = $cast['class']??CastSettings::class;
-        $method = $cast['method']??'execute';
-        if ($cast!==null && class_exists($class) && method_exists($class, $method)) {
-            return $class::$method($this->value);
+        $class = $cast['class'] ?? CastSettings::class;
+        $method = $cast['method'] ?? 'execute';
+        if ($cast !== null && class_exists($class) && method_exists($class, $method)) {
+            return $class::$method($value);
         }
         switch ($this->typeOfValue) {
             case 'boolean':
-                return CastSettings::boolean($this->value);
+                return CastSettings::boolean($value);
             case 'booleanFromString':
-                return CastSettings::booleanFromString($this->value);
+                return CastSettings::booleanFromString($value);
             case 'booleanFromInt':
-                return CastSettings::booleanFromInt($this->value);
+                return CastSettings::booleanFromInt($value);
             case 'numeric':
-                return CastSettings::numeric($this->value);
+                return CastSettings::numeric($value);
             default:
-                return CastSettings::string($this->value);
+                //Se non trova niente effettua un cast in string
+                return CastSettings::string($value);
         }
     }
 
@@ -178,13 +175,13 @@ class Settings extends Model
         }
         $validation_base = 'string';
         $typeCheck = ['boolean','integer','numeric','string'];
-        if(config('padosoft-settings.cast')!==null && is_array(config('padosoft-settings.cast'))){
+        if (config('padosoft-settings.cast') !== null && is_array(config('padosoft-settings.cast'))) {
             $keys = array_keys(config('padosoft-settings.cast'));
-            $typeCheck = array_merge($keys,$typeCheck);
+            $typeCheck = array_merge($keys, $typeCheck);
         }
-        $arrayValidate = explode('|',$this->validation_rules);
-        foreach ($typeCheck as $type){
-            if(in_array($type, $arrayValidate)){
+        $arrayValidate = explode('|', $this->validation_rules);
+        foreach ($typeCheck as $type) {
+            if (in_array($type, $arrayValidate)) {
                 $validation_base = $type;
                 break;
             };
