@@ -2,12 +2,14 @@
 
 namespace Padosoft\Laravel\Settings;
 
+use Elegant\Sanitizer\Filters\Cast;
 use GeneaLabs\LaravelModelCaching\Traits\Cachable;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Padosoft\Laravel\CmsAdmin\Presenters\PresenterBase;
 use Padosoft\Laravel\Settings\Exceptions\DecryptException as SettingsDecryptException;
 
 class Settings extends Model
@@ -47,13 +49,7 @@ class Settings extends Model
         }
     }
 
-    /**
-     * Get the value attribute.
-     *
-     * @param  string $value
-     *
-     * @return string
-     */
+
     public function getValueAttribute($value)
     {
         if (
@@ -62,31 +58,45 @@ class Settings extends Model
                 config('padosoft-settings.encrypted_keys')
             )
         ) {
-            return $this->validate($value, $this->validation_rules);
+            return $value;
         }
         try {
-            $decriptValue = Crypt::decrypt($value);
-            return $this->validate($decriptValue, $this->validation_rules);
+            return Crypt::decrypt($value);
         } catch (DecryptException $e) {
             throw new SettingsDecryptException('Unable to decrypt value. Maybe you have changed your app.key or padosoft-settings.encrypted_keys without updating database values.');
         }
     }
 
-    protected function validate($value, $validation_rules)
+
+    /**
+     * Get the value attribute.
+     *
+     * @param  string $value
+     *
+     * @return string
+     */
+    public function getValueValidatedAttribute()
     {
+        return $this->validate();
+    }
+
+    protected function validate()
+    {
+        return $this->cast();
         //Se non esiste validazione o se la validazione è disattivata restituisce il valore
-        if ($validation_rules === '' || $validation_rules === null || $this->validateNow === false) {
-            return $value;
+        if ($this->validation_rules === '' || $this->validation_rules === null || $this->validateNow === false) {
+            return $this->value;
         }
-        $rule = $validation_rules;
-        if (str_contains($validation_rules, 'regex:')) {
-            $rule = array($validation_rules);
+        $rule = $this->validation_rules;
+        //Imposta la validazione in array se è un regex
+        if (str_contains($this->validation_rules, 'regex:')) {
+            $rule = array($this->validation_rules);
         }
         try {
-            Validator::make(['value' => $value], ['value' => $rule])->validate();
-            return $value;
+            Validator::make(['value' => $this->value], ['value' => $rule])->validate();
+            return $this->cast();
         } catch (ValidationException $e) {
-            throw new \Exception($value . ' is not a valid value.' . 'line:' . $e->getLine());
+            throw new \Exception($this->value . ' is not a valid value.' . 'line:' . $e->getLine());
         }
     }
 
@@ -95,17 +105,28 @@ class Settings extends Model
      * @param $validation_rules
      * @return bool|int|string[]
      */
-    protected function cast($value, $validation_rules)
+    protected function cast()
     {
-        switch ($validation_rules) {
-            case 'boolean':
-                return $value === '0' ? false : true;
-            case 'numeric':
-                return (int)$value;
-            case $this::PATTERN_MULTIPLE_NUMERIC_LIST_SEMICOLON:
-                return explode(';', $value);
+        $cast = config('padosoft-settings.cast.'.$this->validation_rules);
+        //Se esiste la classe e il metodo indicati per il cast in config li utilizza
+        //Altrimenti prosegue.
+        $class = $cast['class']??CastSettings::class;
+        $method = $cast['method']??'execute';
+        if ($cast!==null && class_exists($class) && method_exists($class, $method)) {
+            return $class::$method($this->value);
         }
-        return $value;
+        switch ($this->validation_rules) {
+            case 'boolean':
+                return CastSettings::boolean($this->value);
+            case 'booleanFromString':
+                return CastSettings::booleanFromString($this->value);
+            case 'booleanFromInt':
+                return CastSettings::booleanFromInt($this->value);
+            case 'numeric':
+                return CastSettings::integer($this->value);
+            default:
+                return CastSettings::string($this->value);
+        }
     }
 
 
