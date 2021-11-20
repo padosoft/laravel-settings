@@ -45,4 +45,8 @@ class CastSettings
     {
         return (int)$value;
     }
+    public static function numeric($value)
+    {
+        return (int)$value;
+    }
 }

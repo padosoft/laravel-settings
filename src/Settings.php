@@ -82,15 +82,22 @@ class Settings extends Model
 
     protected function validate()
     {
-        return $this->cast();
         //Se non esiste validazione o se la validazione è disattivata restituisce il valore
         if ($this->validation_rules === '' || $this->validation_rules === null || $this->validateNow === false) {
             return $this->value;
         }
         $rule = $this->validation_rules;
-        //Imposta la validazione in array se è un regex
-        if (str_contains($this->validation_rules, 'regex:')) {
-            $rule = array($this->validation_rules);
+        //recupera la validazione dal config se presente
+        if(config('padosoft-settings.cast.'.$rule.'.validate')!==null){
+            $rule = config('padosoft-settings.cast.'.$rule.'.validate');
+        }
+        //Se regex trasforma in array
+        if (str_contains($rule, 'regex:')) {
+            $rule = array($rule);
+        }else
+        //Altrimenti crea un array sul carattere pipe
+        {
+            $rule = explode('|',$rule);
         }
         try {
             Validator::make(['value' => $this->value], ['value' => $rule])->validate();
@@ -115,7 +122,7 @@ class Settings extends Model
         if ($cast!==null && class_exists($class) && method_exists($class, $method)) {
             return $class::$method($this->value);
         }
-        switch ($this->validation_rules) {
+        switch ($this->typeOfValue) {
             case 'boolean':
                 return CastSettings::boolean($this->value);
             case 'booleanFromString':
@@ -123,7 +130,7 @@ class Settings extends Model
             case 'booleanFromInt':
                 return CastSettings::booleanFromInt($this->value);
             case 'numeric':
-                return CastSettings::integer($this->value);
+                return CastSettings::numeric($this->value);
             default:
                 return CastSettings::string($this->value);
         }
@@ -166,24 +173,22 @@ class Settings extends Model
      */
     public function getTypeOfValueAttribute()
     {
-        if (!str_contains($this->validation_rules, 'regex')) {
-            return $this->validation_rules;
+        if (str_contains($this->validation_rules, 'regex')) {
+            return 'custom';
         }
-        switch ($this->validation_rules) {
-            case 'regex:/' . self::PATTERN_EMAIL_ALIAS . '/':
-                return 'emailAlias';
-                break;
-            case 'regex:/' . self::PATTERN_MULTIPLE_NUMERIC_LIST_SEMICOLON . '/':
-                return 'listSemicolon';
-                break;
-            case 'regex:/' . self::PATTERN_MULTIPLE_NUMERIC_LIST_PIPE . '/':
-                return 'listPipe';
-                break;
-            case 'regex:/' . self::PATTERN_MULTIPLE_NUMERIC_LIST_COMMA . '/':
-                return 'listComma';
-                break;
-            default:
-                return 'customRegex';
+        $validation_base = 'string';
+        $typeCheck = ['boolean','integer','numeric','string'];
+        if(config('padosoft-settings.cast')!==null && is_array(config('padosoft-settings.cast'))){
+            $keys = array_keys(config('padosoft-settings.cast'));
+            $typeCheck = array_merge($keys,$typeCheck);
         }
+        $arrayValidate = explode('|',$this->validation_rules);
+        foreach ($typeCheck as $type){
+            if(in_array($type, $arrayValidate)){
+                $validation_base = $type;
+                break;
+            };
+        }
+        return $validation_base;
     }
 }
