@@ -381,4 +381,35 @@ class SettingsManager
             throw new \Exception('Value: ' . $value . ' is not valid.');
         }
     }
+    public function recalculateOldValidationRules(){
+        $records = Settings::get();
+        $id = [];
+        //Crea la lista di possibili opzioni da validare
+        $validation_base = 'string';
+        //Opzioni base
+        $typeCheck = ['boolean','integer','numeric','string'];
+        //Opzioni recuperate dal file config
+        if (config('padosoft-settings.cast') !== null && is_array(config('padosoft-settings.cast'))) {
+            $keys = array_keys(config('padosoft-settings.cast'));
+            //Unione di tutte le opzioni
+            $typeCheck = array_merge($keys, $typeCheck);
+        }
+        foreach ($records as $record) {
+            echo($record->key.PHP_EOL);
+            foreach ($typeCheck as $validate){
+                $ruleString = getRuleString($validate,$validation_base);
+                $rule = getRule($ruleString);
+                try {
+                    Validator::make(['value' => $record->valueAsString], ['value' => $rule])->validate();
+                    echo('Rule:'. implode(' | ', $rule). ' - ' . $validate.' - '.$record->valueAsString.PHP_EOL);
+                    $id[$validate][]=$record->id;
+                } catch (ValidationException $e) {
+                    continue;
+                }
+            }
+        }
+        foreach($id as $validation_rules => $list){
+            Settings::whereIn('id', $id[$validation_rules]??[])->update(['validation_rules'=>$validation_rules]);
+        }
+    }
 }

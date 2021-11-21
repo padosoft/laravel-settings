@@ -99,4 +99,41 @@ if (!function_exists('hasDbSettingsTable')) {
             return $validation_base;
         }
     }
+
+    if(!function_exists('getRuleString')){
+        /**
+         * @param $type
+         * @param $validation_rules
+         * @return \Illuminate\Config\Repository|\Illuminate\Contracts\Config\Repository|\Illuminate\Contracts\Foundation\Application|mixed
+         */
+        function getRuleString($type, $validation_rules)
+        {
+            //TODO: Aggiungere il supporto per un validate in config in forma Array
+            //recupera la stringa di validazione dal config solo se presente
+            //il valore validate non è obbligatorio può essere un valore utilizzabile con Validate o un regex
+            if (config('padosoft-settings.cast.' . $type . '.validate') !== null) {
+                $ruleString = config('padosoft-settings.cast.' . $type . '.validate');
+            } else {
+                $ruleString = $validation_rules;
+            }
+            return $ruleString;
+        }
+    }
+
+    if(!function_exists('getRule')){
+        /**
+         * @param $ruleString
+         * @return array|false|string[]
+         */
+        function getRule($ruleString)
+        {
+//Se la stringa di validazione contiene un regex, la trasforma in array, altrimenti crea un array esplodendo la stringa sul carattere pipe
+            if (str_contains($ruleString, 'regex:')) {
+                $rule = array($ruleString);
+            } else {
+                $rule = explode('|', $ruleString);
+            }
+            return $rule;
+        }
+    }
 }
