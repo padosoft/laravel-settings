@@ -97,9 +97,9 @@ class Settings extends Model
             $rule = explode('|', $ruleString);
         }
 
-        $methodType = ucfirst(typeOfValueFromValidationRule($ruleString));
-
-        //Prima di fare la validazione se la stringa non contiene una regex, non esiste un metodo Validetor disponibile per la validazione e non esiste nemmeno un valore da validare
+        //TODO: configurare bene il sistema per controllare se esiste un metodo per validare nel Validator
+        //$methodType = ucfirst(typeOfValueFromValidationRule($ruleString));
+        //Prima di fare la validazione se la stringa non contiene una regex, non esiste un metodo Validator disponibile per la validazione e non esiste nemmeno un valore da validare
 //        if (!str_contains($ruleString, 'regex:') && !method_exists(Validator::class, 'validate'.$methodType)) {
 //            Log::error('Validation method does not exists for settings key: "'. $this->key. '". Miss Method "validate'.$methodType. '" or config value: "cast.'.$methodType.'.validate".');
 //            return ($value);
