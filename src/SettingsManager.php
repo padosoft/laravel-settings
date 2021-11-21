@@ -64,6 +64,9 @@ class SettingsManager
             )
         ) {
             return settings()->settings[$key]['value'];
+            //Ritorn valore con cast automatico
+            //return cast(settings()->settings[$key]['value'], settings()->settings[$key]['validation_rule'], typeOfValueFromValidationRule(settings()->settings[$key]['validation_rule']));
+
         }
         try {
             return Crypt::decrypt(settings()->settings[$key]['value']);
