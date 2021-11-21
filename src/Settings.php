@@ -75,31 +75,37 @@ class Settings extends Model
      */
     protected function validate($value)
     {
-        //Se non esiste validazione o se la validazione è disattivata restituisce il valore
+        //Se non esiste validazione o se la validazione è disattivata restituisce il valore non validato
         if ($this->validation_rules === '' || $this->validation_rules === null || $this->validateNow === false) {
             return $value;
         }
 
         $validation_rules = $this->validation_rules;
+        //Genera il tipo di valore raccogliendo dati da config e validation_rules
         $type = typeOfValueFromValidationRule($validation_rules);
-        //recupera la validazione dal config se presente
+        //recupera la stringa di validazione dal config solo se presente
         //il valore validate non è obbligatorio può essere un valore utilizzabile con Validate o un regex
         if (config('padosoft-settings.cast.' . $type . '.validate') !== null) {
             $ruleString = config('padosoft-settings.cast.' . $type . '.validate');
         }else{
             $ruleString = $validation_rules;
         }
-        //Se regex trasforma in array altrimenti crea un array esplodendo sul carattere pipe
+        //Se la stringa di validazione contiene un regex, la trasforma in array, altrimenti crea un array esplodendo la stringa sul carattere pipe
         if (str_contains($ruleString, 'regex:')) {
             $rule = array($ruleString);
         } else {
             $rule = explode('|', $ruleString);
         }
-        if (!str_contains($ruleString, 'regex:') && !method_exists(Validator::class, 'validate'.$type)) {
-            Log::error('Validation method does not exists for settings key: "'. $this->key. '". Miss Method "validate'.$type. '" or config value: "cast.'.$type.'.validate".');
-            return ($value);
-        }
+
+        $methodType = ucfirst(typeOfValueFromValidationRule($ruleString));
+
+        //Prima di fare la validazione se la stringa non contiene una regex, non esiste un metodo Validetor disponibile per la validazione e non esiste nemmeno un valore da validare
+//        if (!str_contains($ruleString, 'regex:') && !method_exists(Validator::class, 'validate'.$methodType)) {
+//            Log::error('Validation method does not exists for settings key: "'. $this->key. '". Miss Method "validate'.$methodType. '" or config value: "cast.'.$methodType.'.validate".');
+//            return ($value);
+//        }
         try {
+            ray($rule);
             Validator::make(['value' => $value], ['value' => $rule])->validate();
             //Effettua un cast dinamico del valore
             return cast($value, $type);
