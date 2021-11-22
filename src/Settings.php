@@ -83,16 +83,16 @@ class Settings extends Model
         //Se flag_cast = false imposta la validazione su stringa
         $validation_rules = $this->flag_cast ? $this->validation_rules : 'string';
         //Genera il tipo di valore raccogliendo dati da config e validation_rules
-        $type = typeOfValueFromValidationRule($validation_rules);
+        $type = SettingsManager::typeOfValueFromValidationRule($validation_rules);
         //Se Validazione disattivata non valida
         if ($this->flag_validate === false) {
-            cast($value, $type);
+            SettingsManager::cast($value, $type);
         }
-        $ruleString = getRuleString($type, $validation_rules);
-        $rule = getRule($ruleString);
+        $ruleString = SettingsManager::getRuleString($type, $validation_rules);
+        $rule = SettingsManager::getRule($ruleString);
 
         //TODO: configurare bene il sistema per controllare se esiste un metodo per validare nel Validator
-        //$methodType = ucfirst(typeOfValueFromValidationRule($ruleString));
+        //$methodType = ucfirst(SettingsManager::typeOfValueFromValidationRule($ruleString));
         //Prima di fare la validazione se la stringa non contiene una regex, non esiste un metodo Validator disponibile per la validazione e non esiste nemmeno un valore da validare
 //        if (!str_contains($ruleString, 'regex:') && !method_exists(Validator::class, 'validate'.$methodType)) {
 //            Log::error('Validation method does not exists for settings key: "'. $this->key. '". Miss Method "validate'.$methodType. '" or config value: "cast.'.$methodType.'.validate".');
@@ -101,7 +101,7 @@ class Settings extends Model
         try {
             Validator::make(['value' => $value], ['value' => $rule])->validate();
             //Effettua un cast dinamico del valore
-            return cast($value, $type);
+            return SettingsManager::cast($value, $type);
         } catch (ValidationException $e) {
             throw new \Exception($value . ' is not a valid value.' . 'line:' . $e->getLine());
         }
@@ -148,7 +148,7 @@ class Settings extends Model
      */
     public function getTypeOfValueAttribute()
     {
-        return typeOfValueFromValidationRule($this->validation_rules);
+        return SettingsManager::typeOfValueFromValidationRule($this->validation_rules);
     }
 
     public function disable_validation(): Settings
