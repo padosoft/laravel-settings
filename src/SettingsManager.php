@@ -382,29 +382,30 @@ class SettingsManager
         }
     }
     public function recalculateOldValidationRules(){
-        $records = Settings::get();
+        $records = Settings::orderBy('id','ASC')->get();
         $id = [];
         //Crea la lista di possibili opzioni da validare
         $validation_base = 'string';
         //Opzioni base
-        $typeCheck = ['boolean','integer','numeric','string'];
+        $typeCheck = ['string','boolean','numeric','integer'];
         //Opzioni recuperate dal file config
         if (config('padosoft-settings.cast') !== null && is_array(config('padosoft-settings.cast'))) {
             $keys = array_keys(config('padosoft-settings.cast'));
             //Unione di tutte le opzioni
-            $typeCheck = array_merge($keys, $typeCheck);
+            $typeCheck = array_merge($typeCheck,$keys);
         }
         foreach ($records as $record) {
             echo($record->key.PHP_EOL);
             foreach ($typeCheck as $validate){
-                $ruleString = getRuleString($validate,$validation_base);
+                $type = typeOfValueFromValidationRule($validate);
+                $ruleString = getRuleString($validate,$type);
                 $rule = getRule($ruleString);
                 try {
                     Validator::make(['value' => $record->valueAsString], ['value' => $rule])->validate();
-                    echo('Rule:'. implode(' | ', $rule). ' - ' . $validate.' - '.$record->valueAsString.PHP_EOL);
+                    echo('id.'.$record->id.'Rule:'. implode(' | ', $rule). ' - ' . $validate.' - '.$record->valueAsString.PHP_EOL);
                     $id[$validate][]=$record->id;
                 } catch (ValidationException $e) {
-                    continue;
+                    echo('##### NO '. $type .' #####'.'    Rule:'. implode(' | ', $rule).PHP_EOL);
                 }
             }
         }
