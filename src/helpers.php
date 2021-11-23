@@ -17,12 +17,12 @@ if (!function_exists('settings')) {
      *
      * @return mixed
      */
-    function settings($key = null, $default = null)
+    function settings($key = null, $default = null, $validate = true, $cast = true)
     {
         if (is_null($key)) {
             return app('Padosoft\Laravel\Settings\SettingsManager');
         }
-        return app('Padosoft\Laravel\Settings\SettingsManager')->get($key, $default);
+        return app('Padosoft\Laravel\Settings\SettingsManager')->get($key, $default, $validate, $cast);
     }
 }
 
