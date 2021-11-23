@@ -22,7 +22,6 @@ if (!function_exists('settings')) {
         if (is_null($key)) {
             return app('Padosoft\Laravel\Settings\SettingsManager');
         }
-
         return app('Padosoft\Laravel\Settings\SettingsManager')->get($key, $default);
     }
 }
@@ -84,10 +83,6 @@ if (!function_exists('hasDbSettingsTable')) {
     {
         return \Schema::hasTable('settings');
     }
-
-
-
-
 }
 
 
@@ -109,8 +104,4 @@ if (!function_exists('settingsIsValid')) {
         }
         return app('Padosoft\Laravel\Settings\SettingsManager')->isValid($key);
     }
-
-
-
-
 }

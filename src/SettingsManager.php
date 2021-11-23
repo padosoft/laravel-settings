@@ -69,6 +69,10 @@ class SettingsManager
         return $this->get($key, $default, true, false);
     }
 
+    /**
+     * @param $key
+     * @return bool
+     */
     public function isValid($key){
         try {
             $this->get($key);
@@ -163,12 +167,10 @@ class SettingsManager
 
     /**
      * Set the value and store all settings on db
-     *
      * @param $key
      * @param $valore
-     * @param string|null $validation_rule
-     * @return $this
-     * @throws \Exception
+     * @param null $validation_rule
+     * @return mixed
      */
     public function setAndStore($key, $valore, $validation_rule = null)
     {
@@ -193,6 +195,9 @@ class SettingsManager
         return $query->where('key', $key)->first();
     }
 
+    /**
+     * @return bool
+     */
     public function loadOnStartUp()
     {
         if (!hasDbSettingsTable() || !config('padosoft-settings.enabled', false)) {
@@ -391,6 +396,9 @@ class SettingsManager
         return settings()->checkVal($val, $pattern);
     }
 
+    /**
+     *
+     */
     public function recalculateOldValidationRules()
     {
         $records = Settings::orderBy('id', 'ASC')->get();
@@ -492,6 +500,10 @@ class SettingsManager
         }
     }
 
+    /**
+     * @param $validation_rules
+     * @return string
+     */
     public static function typeOfValueFromValidationRule($validation_rules)
     {
         if (str_contains($validation_rules, 'regex')) {
