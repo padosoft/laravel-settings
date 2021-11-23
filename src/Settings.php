@@ -35,8 +35,6 @@ class Settings extends Model
      */
     public function setValueAttribute($value)
     {
-        $this->validate($value, $this->validation_rules ?? '');
-
         if (
             is_array(config('padosoft-settings.encrypted_keys')) && array_key_exists('key', $this->attributes) && in_array(
                 $this->attributes['key'],

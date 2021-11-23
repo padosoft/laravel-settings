@@ -6,5 +6,5 @@ return [
         //Esempio
         //'boolean' => ['class' => \Padosoft\Laravel\Settings\CastSettings::class, 'method' => 'boolean'],
         //'booleanFromString' => ['class' => \Padosoft\Laravel\Settings\CastSettings::class]
-    ]
+    ],
 ];
