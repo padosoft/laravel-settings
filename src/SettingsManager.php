@@ -17,8 +17,8 @@ use phpDocumentor\Reflection\DocBlock\Tags\Throws;
 class SettingsManager
 {
     protected $settings = [];
-    protected bool $flag_validate = true;
-    protected bool $flag_cast = true;
+    protected $flag_validate = true;
+    protected $flag_cast = true;
 
     public function __construct()
     {
@@ -254,6 +254,7 @@ class SettingsManager
         //Controlla se Esiste la chiave
         //Se non esiste
         $setting = Settings::where('key', $key)->first();
+
         if ($setting === null) {
             //Valida il valore
             settings()->validate($value, $validation_rule);
@@ -554,7 +555,7 @@ class SettingsManager
             //Effettua un cast dinamico del valore
             return SettingsManager::cast($value, $type);
         } catch (ValidationException $e) {
-            Log::error('Error on key: '. $this->key.'. ' .$e->getMessage());
+            Log::error($e->getMessage());
             return null;
         }
     }

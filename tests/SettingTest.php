@@ -73,32 +73,36 @@ class SettingTest extends TestCase
 
     public function newdataProvider(){
         return [
+            'Email in numero' => [
+                'EmailPino',
+                'Numero di email',
+                'numeric',
+                'pino@lapianta.com',
+                '2',
+                true
+            ],
             'Email in email' => [
                 'Email1',
                 'Email',
                 'email',
                 'pino@lapianta.com',
+                'pino@lapianta2.com',
                 false
             ],
-            'Email in numero' => [
-                'Email2',
-                'Numero di email',
-                'numeric',
-                'pino@lapianta.com',
-                true
-            ],
             'Numero in email' => [
-                'Numero1',
+                'NumeroPrincipale',
                 'Numero in email',
                 'email',
                 '5',
+                'pino@lapianta.com',
                 true
             ],
             'Numero in numero' => [
-                'Numero2',
-                'Numero in email',
+                'NumeroSecondario',
+                'Numero in numero',
                 'numeric',
-                '45',
+                45,
+                55,
                 false
             ],
         ];
@@ -106,24 +110,21 @@ class SettingTest extends TestCase
     /**
      * @dataProvider newdataProvider
      */
-    public function test_newdata($key,$descr,$validation_rule,$value,$exception){
-
+    public function test_newdata($key,$descr,$validation_rule,$value,$valueSupport,$exception){
         $newSetting = new SettingsManager();
         try {
-            $newSetting->UpdateOrCreate($key,$descr,$value,$validation_rule);
+           $newSetting->UpdateOrCreate($key,$descr,$value,$validation_rule);
         }catch (\Exception $e){
             $this->expectExceptionCode(0);
             $this->expectExceptionMessage("Value: {$value} is not valid.");
-            throw new \Exception($e->getMessage(),$e->getCode());
         }
         if($exception){
-            $this->assertDatabaseMissing('settings', [
-                'key' => $key
-            ]);
+            $this->assertNotSame(settings($key), $value);
         }else{
             $this->assertDatabaseHas('settings', [
                 'key' => $key
             ]);
+            $this->assertSame(settings($key), $value);
         }
 
 
@@ -180,19 +181,20 @@ class SettingTest extends TestCase
     /**
      * @dataProvider newdataProvider
      */
-    public function test_canSetNewSettings($key,$descr,$validation_rule,$value,$exception){
+    public function test_canSetNewSettings($key,$descr,$validation_rule,$value,$valueSupport,$exception){
         $settingManager = new SettingsManager();
         try {
+            $settingManager->UpdateOrCreate($key,$descr,$valueSupport,$validation_rule);
             $settingManager->set($key, $value, $validation_rule);
         }catch(\Exception $e){
             $this->expectExceptionCode(0);
             $this->expectExceptionMessage("Value: {$value} is not valid.");
-            throw new \Exception($e->getMessage(),$e->getCode());
+            //throw new \Exception($e->getMessage(),$e->getCode());
         }
         if($exception){
             $this->assertFalse($settingManager->get($key)===$value);
         }else{
-            $this->assertTrue($settingManager->get($key)===$value);
+            $this->assertSame(settings($key),$value);
         }
     }
 
