@@ -73,12 +73,14 @@ class SettingsManager
      * @param $key
      * @return bool
      */
-    public function isValid($key){
+    public function isValid($key)
+    {
         try {
             $this->get($key);
             return true;
-        }catch (\Exception $e){}
-        Log::error($key. ' key is not valid.');
+        } catch (\Exception $e) {
+        }
+        Log::error($key . ' key is not valid.');
         return false;
     }
 
@@ -92,7 +94,7 @@ class SettingsManager
             return null;
         }
         $validation_rule = settings()->settings[$key]['validation_rule'];
-        $value = settings()->validate(settings()->settings[$key]['value'], $validation_rule, $validate, $cast);
+        $value = settings()->validate($key, settings()->settings[$key]['value'], $validation_rule, $validate, $cast);
         if (
             !is_array(config('padosoft-settings.encrypted_keys')) || !in_array(
                 $key,
@@ -223,18 +225,19 @@ class SettingsManager
         if (!hasDbSettingsTable() || !config('padosoft-settings.enabled', false)) {
             return false;
         }
-        $settings = Settings::select('value', 'key', 'config_override')
+        $settings = Settings::select('value', 'validation_rules', 'key', 'config_override')
                             ->where('config_override', '<>', '')
                             ->get();
         foreach ($settings as $setting) {
             $keys = explode('|', $setting->config_override);
             $value = $setting->value;
+            $validation_rules = $setting->validation_rules;
             foreach ($keys as $key) {
                 if (\is_bool(config($key))) {
                     $value = (bool)$value;
+                    $validation_rules = 'boolean';
                 }
-
-                config([$key => $value]);
+                config([$key => $this->validate($key, $value, $validation_rules, true, false)]);
             }
         }
 
@@ -257,7 +260,7 @@ class SettingsManager
 
         if ($setting === null) {
             //Valida il valore
-            settings()->validate($value, $validation_rule);
+            settings()->validate($key, $value, $validation_rule);
             //Crea e esce
             Settings::create([
                                  'key' => $key,
@@ -274,7 +277,7 @@ class SettingsManager
         if ($validation_rule === null) {
             $validation_rule = is_null($setting->validation_rules) ? null : $setting->validation_rules;
         }
-        settings()->validate($value, $validation_rule);
+        settings()->validate($key, $value, $validation_rule);
         $setting->value = $value;
         $setting->descr = $description;
         $setting->validation_rules = $validation_rule;
@@ -414,25 +417,24 @@ class SettingsManager
             //Unione di tutte le opzioni
             $typeCheck = array_merge($typeCheck, $keys);
         }
-        $typeCheck = array_reverse($typeCheck);
+        //$typeCheck = array_reverse($typeCheck);
         foreach ($records as $record) {
-            echo($record->key.PHP_EOL);
+            echo($record->key . PHP_EOL);
             foreach ($typeCheck as $validate) {
                 $type = $this->typeOfValueFromValidationRule($validate);
                 $ruleString = $this->getRuleString($validate, $type);
                 $rule = $this->getRule($ruleString);
                 try {
-                    Validator::make(['value' => $record->valueAsString], ['value' => $rule])->validate();
-                    echo('id.'.$record->id.'Rule:'. implode(' | ', $rule). ' - ' . $validate.' - '.$record->valueAsString.PHP_EOL);
-                    $id[$validate][]=$record->id;
-                    break;
+                    Validator::make(['value' => $record->value], ['value' => $rule])->validate();
+                    echo('id.' . $record->id . 'Rule:' . implode(' | ', $rule) . ' - ' . $validate . ' - ' . $record->valueAsString . PHP_EOL);
+                    $id[$validate][] = $record->id;
                 } catch (ValidationException $e) {
-                    echo('##### NO '. $type .' #####'.'    Rule:'. implode(' | ', $rule).PHP_EOL);
+                    echo('##### NO ' . $type . ' #####' . '    Rule:' . implode(' | ', $rule) . PHP_EOL);
                 }
             }
         }
         foreach ($id as $validation_rules => $list) {
-            Settings::whereIn('id', $id[$validation_rules]??[])->update(['validation_rules'=>$validation_rules]);
+            Settings::whereIn('id', $id[$validation_rules] ?? [])->update(['validation_rules' => $validation_rules]);
         }
     }
 
@@ -481,7 +483,6 @@ class SettingsManager
      */
     public static function cast($value, $type_of_value)
     {
-
         $cast = config('padosoft-settings.cast.' . $type_of_value);
         //Se esiste la classe e il metodo indicati per il cast in config li utilizza
         //Altrimenti prosegue.
@@ -531,34 +532,36 @@ class SettingsManager
      * @return bool|int|mixed|string|string[]
      * @throws \Exception
      */
-    public function validate($value, $validation_rules = null, $validate = true, $cast = true)
+    public function validate($key, $value, $validation_rules = null, $validate = true, $cast = true)
     {
         //Se non esiste validazione o se la validazione è disattivata restituisce il valore non validato
         if ($validation_rules === '' || $validation_rules === null) {
             return $value;
         }
         //Se flag_cast = false imposta la validazione su stringa
-        $validation_rules = $cast ? $validation_rules : 'string';
+        //$validation_rules = $cast ? $validation_rules : 'string';
         //Genera il tipo di valore raccogliendo dati da config e validation_rules
         $type = self::typeOfValueFromValidationRule($validation_rules);
         //Se Validazione disattivata non valida
-        if ($cast === false) {
-            self::cast($value, $type);
-        }
         $ruleString =  self::getRuleString($type, $validation_rules);
         $rule =  self::getRule($ruleString);
-
         try {
-            if ($validate===true){
-                Validator::make(['value' => $value], ['value' => $rule])->validate();
+            try {
+                if ($validate === true) {
+                    Validator::make(['value' => $value], ['value' => $rule])->validate();
+                }
+                //Effettua un cast dinamico del valore
+                if ($cast === false) {
+                    return $value;
+                }
+                return SettingsManager::cast($value, $type);
+            } catch (ValidationException $e) {
+                Log::error($key . ' :: ' . $e->getMessage());
+                return null;
             }
-            //Effettua un cast dinamico del valore
-            return SettingsManager::cast($value, $type);
-        } catch (ValidationException $e) {
-            Log::error($e->getMessage());
-            return null;
+        } catch (\Exception $error) {
+            Log::error('Validation not exists on key ' . $key . ':' . serialize($rule));
+            Log::error($error->getMessage());
         }
     }
-
-
 }
