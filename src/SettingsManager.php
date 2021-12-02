@@ -425,11 +425,15 @@ class SettingsManager
                 $ruleString = $this->getRuleString($validate, $type);
                 $rule = $this->getRule($ruleString);
                 try {
-                    Validator::make(['value' => $record->value], ['value' => $rule])->validate();
-                    echo('id.' . $record->id . 'Rule:' . implode(' | ', $rule) . ' - ' . $validate . ' - ' . $record->valueAsString . PHP_EOL);
-                    $id[$validate][] = $record->id;
-                } catch (ValidationException $e) {
-                    echo('##### NO ' . $type . ' #####' . '    Rule:' . implode(' | ', $rule) . PHP_EOL);
+                    try {
+                        Validator::make(['value' => $record->value], ['value' => $rule])->validate();
+                        echo('id.' . $record->id . 'Rule:' . implode(' | ', $rule) . ' - ' . $validate . ' - ' . $record->valueAsString . PHP_EOL);
+                        $id[$validate][] = $record->id;
+                    } catch (ValidationException $e) {
+                        echo('##### NO ' . $type . ' #####' . '    Rule:' . implode(' | ', $rule) . PHP_EOL);
+                    }
+                }catch(\Exception $e){
+                    echo($e->getMessage());
                 }
             }
         }
