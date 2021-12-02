@@ -403,7 +403,7 @@ class SettingsManager
     /**
      *
      */
-    public function recalculateOldValidationRules()
+    public function recalculateOldValidationRules($rebase = false)
     {
         $records = Settings::orderBy('id', 'ASC')->get();
         $id = [];
@@ -419,6 +419,9 @@ class SettingsManager
         }
         //$typeCheck = array_reverse($typeCheck);
         foreach ($records as $record) {
+            if($record->validation_rules!=='' && $rebase===false){
+                continue;
+            }
             echo($record->key . PHP_EOL);
             foreach ($typeCheck as $validate) {
                 $type = $this->typeOfValueFromValidationRule($validate);
