@@ -400,44 +400,120 @@ class SettingsManager
         return settings()->checkVal($val, $pattern);
     }
 
+    public function recalculateValidationRules(bool $rebase = false, bool $fix = false, string $key = ''): void
+    {
+        $this->getRecalculateOldValidationRulesData($rebase, $fix, $key);
+    }
+
+
+    public function rebaseValidationRules(string $key = ''): void
+    {
+        $data = $this->getRecalculateOldValidationRulesData(true, false, $key);
+        $this->updateValidationRulesFromData($data ['id']);
+    }
+
+    public function fixValidationRules(string $key = ''): void
+    {
+        $data = $this->getRecalculateOldValidationRulesData(false, true, $key);
+        $this->updateValidationRulesFromData($data ['id']);
+    }
+
+    public function setValidationRules(string $key = ''): void
+    {
+        $data = $this->getRecalculateOldValidationRulesData(false, false, $key);
+        $this->updateValidationRulesFromData($data ['id']);
+    }
+
+
     /**
      *
      */
-    public function recalculateOldValidationRules()
+    public function getRecalculateOldValidationRulesData(bool $rebase = false, bool $fix = false, string $key = ''): array
     {
-        $records = Settings::orderBy('id', 'ASC')->get();
         $id = [];
-        //Crea la lista di possibili opzioni da validare
-        $validation_base = 'string';
-        //Opzioni base
-        $typeCheck = ['string','boolean','numeric','integer'];
-        //Opzioni recuperate dal file config
-        if (config('padosoft-settings.cast') !== null && is_array(config('padosoft-settings.cast'))) {
-            $keys = array_keys(config('padosoft-settings.cast'));
-            //Unione di tutte le opzioni
-            $typeCheck = array_merge($typeCheck, $keys);
+        if ($key !== '') {
+            $records = Settings::where('key', $key)->orderBy('id', 'ASC')->get();
+        } else {
+            $records = Settings::orderBy('id', 'ASC')->get();
         }
+        $id = [];
+        $typeCheck = $this->getAllValidationRules();
         //$typeCheck = array_reverse($typeCheck);
         foreach ($records as $record) {
-            echo($record->key . PHP_EOL);
+            Log::channel('console')->alert(PHP_EOL . $record->key);
+            //If value is empty continue;
+            if ($record->value === '') {
+                Log::channel('console')->info('Value is empty.');
+                continue;
+            }
+            //If exist validation_rules end rabase is false and fix is false then continue
+            if ($record->validation_rules !== '' && $rebase === false && $fix === false) {
+                Log::channel('console')->info('Keys has a ValidationRules.');
+                continue;
+            }
+            //If fix is true and Validation is Ok then continue
+            if ($rebase === false && $fix === true && $this->validate($record->key, $record->value, $record->validation_rules) !== null) {
+                Log::channel('console')->info($record->key . ' has a Valid value.');
+                continue;
+            }
+            Log::channel('console')->alert(PHP_EOL . 'Search a valid ValidationRule...');
+            $logValidate = '';
             foreach ($typeCheck as $validate) {
                 $type = $this->typeOfValueFromValidationRule($validate);
                 $ruleString = $this->getRuleString($validate, $type);
                 $rule = $this->getRule($ruleString);
                 try {
-                    Validator::make(['value' => $record->value], ['value' => $rule])->validate();
-                    echo('id.' . $record->id . 'Rule:' . implode(' | ', $rule) . ' - ' . $validate . ' - ' . $record->valueAsString . PHP_EOL);
-                    $id[$validate][] = $record->id;
-                } catch (ValidationException $e) {
-                    echo('##### NO ' . $type . ' #####' . '    Rule:' . implode(' | ', $rule) . PHP_EOL);
+                    try {
+                        Validator::make(['value' => $record->value], ['value' => $rule])->validate();
+                        $id[$validate][] = $record->id;
+                        $logValidate = $validate;
+                    } catch (ValidationException $e) {
+                        //Log::channel('console')->info($type . '    Rule:' . implode(' | ', $rule));
+                    }
+                } catch (\Exception $e) {
+                    echo($e->getMessage());
                 }
             }
+            Log::channel('console')->info('Set validation_rule ' . $logValidate);
         }
-        foreach ($id as $validation_rules => $list) {
-            Settings::whereIn('id', $id[$validation_rules] ?? [])->update(['validation_rules' => $validation_rules]);
-        }
+        Log::channel('console')->info(PHP_EOL . PHP_EOL . 'UPDATE DATABASE:');
+
+        return ['id' => $id,'records' => $records];
     }
 
+    /**
+     * @return int[]|string[]
+     */
+    public function getAllValidationRules()
+    {
+        //Create list options for validation
+        $validation_base = 'string';
+        //Base Validation Rules
+        $typeCheck = ['string','boolean','numeric','integer'];
+        //Build Validations Rules from config file
+        if (config('padosoft-settings.cast') !== null && is_array(config('padosoft-settings.cast'))) {
+            $keys = array_keys(config('padosoft-settings.cast'));
+            //Unione di tutte le opzioni
+            $typeCheck = array_merge($typeCheck, $keys);
+        }
+        return $typeCheck;
+    }
+
+    /**
+     * @param array $id
+     * @return void
+     */
+    public function updateValidationRulesFromData(array $id)
+    {
+        foreach ($id as $validation_rules => $list) {
+            Log::channel('console')->info('Update Database with new Validation Rules: ' . $validation_rules);
+            try {
+                Settings::whereIn('id', $id[$validation_rules] ?? [])->update(['validation_rules' => $validation_rules]);
+            } catch (\Exception $error) {
+                Log::error('Error on update settings Validation_rules on validation: ' . $validation_rules);
+            }
+        }
+    }
 
     /**
      * @param $ruleString
