@@ -614,13 +614,8 @@ class SettingsManager
         if ($validation_rules === '' || $validation_rules === null) {
             return $value;
         }
-        //Se flag_cast = false imposta la validazione su stringa
-        //$validation_rules = $cast ? $validation_rules : 'string';
-        //Genera il tipo di valore raccogliendo dati da config e validation_rules
         $type = self::typeOfValueFromValidationRule($validation_rules);
-        //Se Validazione disattivata non valida
-        $ruleString =  self::getRuleString($type, $validation_rules);
-        $rule =  self::getRule($ruleString);
+        $rule = self::getMixValidationRules($validation_rules);
         try {
             try {
                 if ($validate === true) {
@@ -640,4 +635,20 @@ class SettingsManager
             Log::error($error->getMessage());
         }
     }
+
+    /**
+     * @param $validation_rules
+     * @return array|false|string[]
+     */
+    public function getMixValidationRules($validation_rules){
+        //Se flag_cast = false imposta la validazione su stringa
+        //$validation_rules = $cast ? $validation_rules : 'string';
+        //Genera il tipo di valore raccogliendo dati da config e validation_rules
+        $type = self::typeOfValueFromValidationRule($validation_rules);
+        //Se Validazione disattivata non valida
+        $ruleString =  self::getRuleString($type, $validation_rules);
+        $rule =  self::getRule($ruleString);
+        return $rule;
+    }
+
 }

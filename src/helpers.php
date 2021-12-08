@@ -37,11 +37,8 @@ if (!function_exists('settingsAsString')) {
      *
      * @return mixed
      */
-    function settingsAsString($key = null, $default = null)
+    function settingsAsString($key, $default = null)
     {
-        if (is_null($key)) {
-            return app('Padosoft\Laravel\Settings\SettingsManager');
-        }
         return app('Padosoft\Laravel\Settings\SettingsManager')->getAsString($key, $default);
     }
 }
@@ -57,12 +54,8 @@ if (!function_exists('settingsRaw')) {
      *
      * @return mixed
      */
-    function settingsRaw($key = null, $default = null)
+    function settingsRaw($key, $default = null)
     {
-        if (is_null($key)) {
-            return app('Padosoft\Laravel\Settings\SettingsManager');
-        }
-
         return app('Padosoft\Laravel\Settings\SettingsManager')->getRaw($key, $default);
     }
 }
@@ -99,9 +92,19 @@ if (!function_exists('settingsIsValid')) {
      */
     function settingsIsValid($key)
     {
-        if (is_null($key)) {
-            return app('Padosoft\Laravel\Settings\SettingsManager');
-        }
         return app('Padosoft\Laravel\Settings\SettingsManager')->isValid($key);
     }
 }
+if (!function_exists('getMixValidationRules')) {
+    /**
+     * Get the validation rule.
+     * @param string $key
+     * @param $default
+     * @return array|false|string[]
+     */
+    function getMixValidationRules(string $key, $default)
+    {
+        return app('Padosoft\Laravel\Settings\SettingsManager')->getMixValidationRules($validation_rules);
+    }
+}
+
