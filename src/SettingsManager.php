@@ -402,7 +402,8 @@ class SettingsManager
 
     public function recalculateValidationRules(bool $rebase = false, bool $fix = false, string $key = ''): void
     {
-        $this->getRecalculateOldValidationRulesData($rebase, $fix, $key);
+        $data = $this->getRecalculateOldValidationRulesData($rebase, $fix, $key);
+        $this->updateValidationRulesFromData($data ['id']);
     }
 
 
@@ -456,15 +457,21 @@ class SettingsManager
                 Log::channel('console')->info($record->key . ' has a Valid value.');
                 continue;
             }
-            Log::channel('console')->alert(PHP_EOL . 'Search a valid ValidationRule...');
+            Log::channel('console')->alert('Search a valid ValidationRule...');
             $logValidate = '';
-            foreach ($typeCheck as $validate) {
+            foreach ($typeCheck as $validate => $rules) {
                 $type = $this->typeOfValueFromValidationRule($validate);
                 $ruleString = $this->getRuleString($validate, $type);
                 $rule = $this->getRule($ruleString);
                 try {
                     try {
+                        //Recognize string with recognize rules
+                        if ($this->recognize($record->value, $rules['recognize'] ?? []) === false) {
+                            continue;
+                        }
+                        //Validation
                         Validator::make(['value' => $record->value], ['value' => $rule])->validate();
+                        //Recognize
                         $id[$validate][] = $record->id;
                         $logValidate = $validate;
                     } catch (ValidationException $e) {
@@ -489,15 +496,44 @@ class SettingsManager
         //Create list options for validation
         $validation_base = 'string';
         //Base Validation Rules
-        $typeCheck = ['string','boolean','numeric','integer'];
+        $typeCheck = ['string' => 'string','boolean' => 'boolean','numeric' => 'numeric','integer' => 'integer'];
         //Build Validations Rules from config file
         if (config('padosoft-settings.cast') !== null && is_array(config('padosoft-settings.cast'))) {
-            $keys = array_keys(config('padosoft-settings.cast'));
+            $extra = config('padosoft-settings.cast');
             //Unione di tutte le opzioni
-            $typeCheck = array_merge($typeCheck, $keys);
+            $typeCheck = array_merge($typeCheck, $extra);
         }
         return $typeCheck;
     }
+
+    /**
+     * @param string $value
+     * @param array $recognize_rules
+     * @return bool
+     */
+    public function recognize(string $value, array $recognize_rules = []):bool
+    {
+        foreach ($recognize_rules as $ruleData) {
+            $ruleDataArray = explode(':', $ruleData, 2);
+            $rule = $ruleDataArray[0];
+            $data = $ruleDataArray[1] ?? '';
+            switch ($rule) {
+                case 'contains':
+                    if (str_contains($value, $data) === false) {
+                        return false;
+                    }
+                    break;
+                case 'noContains':
+                    if (str_contains($value, $data) === true) {
+                        return false;
+                    }
+                    break;
+            }
+        }
+        return true;
+    }
+
+
 
     /**
      * @param array $id
@@ -640,7 +676,8 @@ class SettingsManager
      * @param $validation_rules
      * @return array|false|string[]
      */
-    public function getMixValidationRules($validation_rules){
+    public function getMixValidationRules($validation_rules)
+    {
         //Se flag_cast = false imposta la validazione su stringa
         //$validation_rules = $cast ? $validation_rules : 'string';
         //Genera il tipo di valore raccogliendo dati da config e validation_rules
@@ -650,5 +687,4 @@ class SettingsManager
         $rule =  self::getRule($ruleString);
         return $rule;
     }
-
 }
