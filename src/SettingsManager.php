@@ -64,7 +64,7 @@ class SettingsManager
      * Restituisce il valore come stringa
      * @return string
      */
-    public function getAsString($key, $default = null): string
+    public function getAsString($key, $default = null): ?string
     {
         return $this->get($key, $default, true, false);
     }

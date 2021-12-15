@@ -37,7 +37,7 @@ if (!function_exists('settingsAsString')) {
      *
      * @return mixed
      */
-    function settingsAsString($key, $default = null)
+    function settingsAsString($key, $default = null): ?string
     {
         return app('Padosoft\Laravel\Settings\SettingsManager')->getAsString($key, $default);
     }
