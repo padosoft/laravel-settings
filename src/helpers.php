@@ -4,6 +4,7 @@
  * Copyright (c) Padosoft.com 2018.
  */
 
+use Illuminate\Support\Facades\Schema;
 use Padosoft\Laravel\Settings\CastSettings;
 
 if (!function_exists('settings')) {
@@ -74,7 +75,7 @@ if (!function_exists('hasDbSettingsTable')) {
      */
     function hasDbSettingsTable()
     {
-        return \Schema::hasTable('settings');
+        return Schema::hasTable('settings');
     }
 }
 
