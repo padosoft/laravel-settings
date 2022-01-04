@@ -225,9 +225,7 @@ class SettingsManager
         if (!hasDbSettingsTable() || !config('padosoft-settings.enabled', false)) {
             return false;
         }
-        $settings = Settings::select('value', 'validation_rules', 'key', 'config_override')
-                            ->where('config_override', '<>', '')
-                            ->get();
+        $settings = Settings::where('config_override', '<>', '')->get();
         foreach ($settings as $setting) {
             $keys = explode('|', $setting->config_override);
             $value = $setting->value;
