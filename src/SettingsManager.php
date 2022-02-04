@@ -36,19 +36,19 @@ class SettingsManager
      */
     public function get($key, $default = null, $validate = true, $cast = true)
     {
-        if (array_key_exists($key, settings()->settings)) {
-            return settings()->getMemoryValue($key);
+        if (array_key_exists($key, $this->settings)) {
+            return $this->getMemoryValue($key);
         }
-        $appo = settings()->getModel($key);
+        $appo = $this->getModel($key);
         if (!is_null($appo)) {
             //Quando salva in cache fa la validazione ma non il cast
-            settings()->set($key, $appo->value, is_null($appo->validation_rules) ? null : $appo->validation_rules);
+            $this->set($key, $appo->value, is_null($appo->validation_rules) ? null : $appo->validation_rules);
         } else {
             //Il valore di default non fa ne validazione ne cast
-            settings()->set($key, $default, '');
+            $this->set($key, $default, '');
         }
         //Restituisce il valore dalla memoria effettuando il cast e validazione
-        return settings()->getMemoryValue($key, $validate, $cast);
+        return $this->getMemoryValue($key, $validate, $cast);
     }
 
 
@@ -90,11 +90,11 @@ class SettingsManager
      */
     protected function getMemoryValue($key, $validate = true, $cast = true)
     {
-        if (!array_key_exists($key, settings()->settings)) {
+        if (!array_key_exists($key, $this->settings)) {
             return null;
         }
-        $validation_rule = settings()->settings[$key]['validation_rule'];
-        $value = settings()->validate($key, settings()->settings[$key]['value'], $validation_rule, $validate, $cast);
+        $validation_rule = $this->settings[$key]['validation_rule'];
+        $value = $this->validate($key, $this->settings[$key]['value'], $validation_rule, $validate, $cast);
         if (
             !is_array(config('padosoft-settings.encrypted_keys')) || !in_array(
                 $key,
@@ -116,10 +116,10 @@ class SettingsManager
      */
     protected function getMemoryValidationRule($key)
     {
-        if (!array_key_exists($key, settings()->settings)) {
+        if (!array_key_exists($key, $this->settings)) {
             return null;
         }
-        return settings()->settings[$key]['validation_rule'];
+        return $this->settings[$key]['validation_rule'];
     }
 
     /**
@@ -132,7 +132,7 @@ class SettingsManager
      */
     public function set($key, $value, $validation_rule = null)
     {
-        //settings()->validate($value, $validation_rule);
+        //$this->validate($value, $validation_rule);
         if (
             is_array(config('padosoft-settings.encrypted_keys')) && in_array(
                 $key,
@@ -141,8 +141,8 @@ class SettingsManager
         ) {
             $value = Crypt::encrypt($value);
         }
-        settings()->settings[$key]['value'] = $value;
-        settings()->settings[$key]['validation_rule'] = $validation_rule;
+        $this->settings[$key]['value'] = $value;
+        $this->settings[$key]['validation_rule'] = $validation_rule;
         return $this;
     }
 
@@ -152,15 +152,15 @@ class SettingsManager
      */
     public function store(): SettingsManager
     {
-        foreach (settings()->settings as $key => $valore) {
-            $model = settings()->getModel($key, true);
+        foreach ($this->settings as $key => $valore) {
+            $model = $this->getModel($key, true);
             if ($model === null) {
                 throw new \Exception("Failed to update settings key '" . $key . " on Database. This key does not exist. You must create the key before you can perform an update.");
             }
-            if (settings()->getMemoryValidationRule($key) !== null) {
-                $model->validation_rules = settings()->getMemoryValidationRule($key);
+            if ($this->getMemoryValidationRule($key) !== null) {
+                $model->validation_rules = $this->getMemoryValidationRule($key);
             }
-            $model->value = settings()->getMemoryValue($key, true, false);
+            $model->value = $this->getMemoryValue($key, true, false);
             $model->save();
         }
 
@@ -176,7 +176,7 @@ class SettingsManager
      */
     public function setAndStore($key, $valore, $validation_rule = null)
     {
-        return settings()->set($key, $valore, $validation_rule)->store();
+        return $this->set($key, $valore, $validation_rule)->store();
     }
 
     /**
@@ -206,12 +206,12 @@ class SettingsManager
             return false;
         }
         $settings = Settings::where('load_on_startup', '=', 1)
-                            ->get();
+            ->get();
         foreach ($settings as $setting) {
             $key = $setting->key;
             $value = $setting->value;
             $validation_rule = is_null($setting->validation_rules) ? null : $setting->validation_rules;
-            settings()->set($key, $value, $validation_rule);
+            $this->set($key, $value, $validation_rule);
         }
 
         return true;
@@ -258,16 +258,16 @@ class SettingsManager
 
         if ($setting === null) {
             //Valida il valore
-            settings()->validate($key, $value, $validation_rule);
+            $this->validate($key, $value, $validation_rule);
             //Crea e esce
             Settings::create([
-                                 'key' => $key,
-                                 'value' => $value,
-                                 'descr' => $description,
-                                 'validation_rules' => $validation_rule,
-                                 'config_override' => $config_override,
-                                 'load_on_startup' => $load_on_startup
-                             ]);
+                'key' => $key,
+                'value' => $value,
+                'descr' => $description,
+                'validation_rules' => $validation_rule,
+                'config_override' => $config_override,
+                'load_on_startup' => $load_on_startup
+            ]);
             return;
         }
         //Se esiste la chiave
@@ -275,7 +275,7 @@ class SettingsManager
         if ($validation_rule === null) {
             $validation_rule = is_null($setting->validation_rules) ? null : $setting->validation_rules;
         }
-        settings()->validate($key, $value, $validation_rule);
+        $this->validate($key, $value, $validation_rule);
         $setting->value = $value;
         $setting->descr = $description;
         $setting->validation_rules = $validation_rule;
@@ -293,7 +293,7 @@ class SettingsManager
      */
     public function UpdateOrCreate_URL($key, $description, $value, $config_override = '', $load_on_startup = 0)
     {
-        settings()->UpdateOrCreate($key, $description, $value, 'url', $config_override, $load_on_startup);
+        $this->UpdateOrCreate($key, $description, $value, 'url', $config_override, $load_on_startup);
     }
 
 
@@ -306,7 +306,7 @@ class SettingsManager
      */
     public function UpdateOrCreate_Email($key, $description, $value, $config_override = '', $load_on_startup = 0)
     {
-        settings()->UpdateOrCreate($key, $description, $value, 'email', $config_override, $load_on_startup);
+        $this->UpdateOrCreate($key, $description, $value, 'email', $config_override, $load_on_startup);
     }
 
     //Controlli
@@ -374,7 +374,7 @@ class SettingsManager
     public function isListSeparatedByPipe($val): bool
     {
         $pattern = Settings::PATTERN_MULTIPLE_NUMERIC_LIST_PIPE;
-        return settings()->checkVal($val, $pattern);
+        return $this->checkVal($val, $pattern);
     }
 
     /**
@@ -384,7 +384,7 @@ class SettingsManager
     public function isListSeparatedBySemicolon($val): bool
     {
         $pattern = Settings::PATTERN_MULTIPLE_NUMERIC_LIST_SEMICOLON;
-        return settings()->checkVal($val, $pattern);
+        return $this->checkVal($val, $pattern);
     }
 
 
@@ -395,7 +395,7 @@ class SettingsManager
     public function isListSeparatedByComma($val): bool
     {
         $pattern = Settings::PATTERN_MULTIPLE_NUMERIC_LIST_COMMA;
-        return settings()->checkVal($val, $pattern);
+        return $this->checkVal($val, $pattern);
     }
 
     public function recalculateValidationRules(bool $rebase = false, bool $fix = false, string $key = ''): void

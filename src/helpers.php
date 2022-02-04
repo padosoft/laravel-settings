@@ -75,7 +75,9 @@ if (!function_exists('hasDbSettingsTable')) {
      */
     function hasDbSettingsTable()
     {
-        return Schema::hasTable('settings');
+        return \Illuminate\Support\Facades\Cache::rememberForever('hasDbSettingsTable',function(){
+            Schema::hasTable('settings');
+        });
     }
 }
 
