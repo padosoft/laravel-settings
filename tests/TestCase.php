@@ -95,5 +95,6 @@ abstract class TestCase extends Orchestra
         include_once __DIR__ . '/../src/Migrations/2021_11_06_164212_add_validation_rules_table.php';
         (new \AddValidationRulesTable())->up();
         $app['config']->set('padosoft-settings.enabled', true);
+        \Illuminate\Support\Facades\Cache::forget('hasDbSettingsTable');
     }
 }

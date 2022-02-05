@@ -18,6 +18,7 @@ class SettingTest extends TestCase
     /** @test */
     public function hasSettings()
     {
+        \Illuminate\Support\Facades\Cache::forget('hasDbSettingsTable');
         $this->assertTrue(hasDbSettingsTable());
     }
 
