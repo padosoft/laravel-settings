@@ -183,7 +183,7 @@ class SettingTest extends TestCase
      * @dataProvider newdataProvider
      */
     public function test_canSetNewSettings($key,$descr,$validation_rule,$value,$valueSupport,$exception){
-        $settingManager = new SettingsManager();
+        $settingManager = settings();
         try {
             $settingManager->UpdateOrCreate($key,$descr,$valueSupport,$validation_rule);
             $settingManager->set($key, $value, $validation_rule);
