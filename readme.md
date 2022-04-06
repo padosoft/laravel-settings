@@ -2,7 +2,7 @@
 
 [![License](https://poser.pugx.org/anlutro/l4-settings/license.svg)](http://opensource.org/licenses/MIT)
 
-[![CircleCI](https://circleci.com/gh/padosoft/laravel-settings.svg?style=svg)](https://circleci.com/gh/padosoft/laravel-settings)
+[![CircleCI](https://circleci.com/gh/padosoft/laravel-settings.svg?style=shield)](https://circleci.com/gh/padosoft/laravel-settings)
 
 Persistent on database, application-wide settings for Laravel.
 
