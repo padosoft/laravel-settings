@@ -79,7 +79,7 @@ class Settings extends Model
     public function getIsValidAttribute(): bool
     {
         try {
-            settings()->validate($this->value, $this->validation_rules, true, true) ;
+            settings()->validate($this->key, $this->value, $this->validation_rules, true, true);
         } catch (\Exception $e) {
             echo($e->getMessage());
             return false;
