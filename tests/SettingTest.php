@@ -33,6 +33,88 @@ class SettingTest extends TestCase
     }
 
     /** @test */
+    public function settingsManagerCanStoreFile()
+    {
+        @unlink(storage_path('settings.php'));
+        $returnValue = \SettingsManager::loadOnStartUp();
+        $this->assertTrue(file_exists(storage_path('settings.php')));
+    }
+
+    /** @test */
+    public function settingsManagerReadFromFile()
+    {
+        $fake_settings=[];
+        $key='settings'.time();
+        $fake_settings[$key]=
+            [
+                'value'=>'fake_value'.time(),
+                'validation_rule'=>'string',
+            ];
+        file_put_contents(storage_path('settings.php'),'<?php return '.var_export($fake_settings,true).';');
+        $returnValue = \SettingsManager::loadOnStartUp();
+        $this->assertEquals($fake_settings[$key]['value'],settings($key));
+    }
+
+    /** @test */
+    public function itUpdateFileWhenSettingsIsCreated()
+    {
+        $model = new Settings();
+        $model->key = 'test'.time();
+        $model->value = 'test_value';
+
+        $model->save();
+
+        $this->assertTrue(file_exists(storage_path('settings.php')));
+        $settings=require(storage_path('settings.php'));
+        $this->assertIsArray($settings);
+        $this->assertArrayHasKey($model->key,$settings);
+        $this->assertEquals($settings[$model->key]['value'],$model->value);
+
+    }
+
+    /** @test */
+    public function itUpdateFileWhenSettingsIsUpdated()
+    {
+        $model = new Settings();
+        $model->key = 'test'.time();
+        $model->value = 'test_value';
+
+        $model->save();
+
+        $model->value = 'test_value2';
+        $model->save();
+
+        $this->assertTrue(file_exists(storage_path('settings.php')));
+        $settings=require(storage_path('settings.php'));
+        $this->assertIsArray($settings);
+        $this->assertArrayHasKey($model->key,$settings);
+        $this->assertEquals('test_value2',$settings[$model->key]['value']);
+
+    }
+
+    /** @test */
+    public function itUpdateFileWhenSettingsIsDeleted()
+    {
+        $model = new Settings();
+        $model->key = 'test'.time();
+        $model->value = 'test_value';
+
+        $model->save();
+        $this->assertTrue(file_exists(storage_path('settings.php')));
+        $settings=require(storage_path('settings.php'));
+        $this->assertIsArray($settings);
+        $this->assertArrayHasKey($model->key,$settings);
+
+        $model->delete();
+
+
+        $settings=require(storage_path('settings.php'));
+        $this->assertIsArray($settings);
+        $this->assertArrayNotHasKey($model->key,$settings);
+
+    }
+
+    /** @test */
     public function canCreateSetting()
     {
         /*

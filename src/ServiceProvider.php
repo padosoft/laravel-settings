@@ -23,7 +23,6 @@ class ServiceProvider extends \Illuminate\Support\ServiceProvider
             __DIR__ . '/Config/config.php' => config_path('padosoft-settings.php')
         ]);
         settings::loadOnStartUp();
-        settings::overrideConfig();
     }
 
     /**

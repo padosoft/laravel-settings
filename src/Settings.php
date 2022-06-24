@@ -2,7 +2,6 @@
 
 namespace Padosoft\Laravel\Settings;
 
-use Elegant\Sanitizer\Filters\Cast;
 use GeneaLabs\LaravelModelCaching\Traits\Cachable;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +9,6 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
-use Padosoft\Laravel\CmsAdmin\Presenters\PresenterBase;
 use Padosoft\Laravel\Settings\Exceptions\DecryptException as SettingsDecryptException;
 
 class Settings extends Model
@@ -27,9 +25,27 @@ class Settings extends Model
     protected $guarded = ['created_at', 'updated_at'];
 
     /**
+     * The "booted" method of the model.
+     *
+     * @return void
+     */
+    protected static function booted()
+    {
+        static::saved(function ($model) {
+            settings()->set($model->key, $model->value, $model->validation_rules);
+            settings()->persistToFile();
+        });
+        static::deleted(function ($model) {
+            settings()->remove($model->key);
+            settings()->persistToFile();
+        });
+
+    }
+
+    /**
      * Set the value attribute.
      *
-     * @param  string $value
+     * @param string $value
      *
      * @return void
      */
@@ -51,7 +67,7 @@ class Settings extends Model
     public function getValueAttribute($value)
     {
         if (
-            !is_array(config('padosoft-settings.encrypted_keys')) || !array_key_exists('key', $this->attributes)  || !in_array(
+            !is_array(config('padosoft-settings.encrypted_keys')) || !array_key_exists('key', $this->attributes) || !in_array(
                 $this->attributes['key'],
                 config('padosoft-settings.encrypted_keys')
             )
@@ -64,6 +80,7 @@ class Settings extends Model
             throw new SettingsDecryptException('Unable to decrypt value. Maybe you have changed your app.key or padosoft-settings.encrypted_keys without updating database values.');
         }
     }
+
     /**
      * Restituisce il tipo di valore seguendo le regole impostate in Settings
      * @return int|mixed|string
@@ -72,6 +89,7 @@ class Settings extends Model
     {
         return settings()->typeOfValueFromValidationRule($this->validation_rules);
     }
+
     /**
      * Restituisce true se il valore è valido, false se il valore non è valido
      * @return bool

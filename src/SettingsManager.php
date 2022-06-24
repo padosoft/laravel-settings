@@ -58,8 +58,9 @@ class SettingsManager
      */
     public function getRaw($key, $default = null)
     {
-        return  $this->get($key, $default, false, false);
+        return $this->get($key, $default, false, false);
     }
+
     /**
      * Restituisce il valore come stringa
      * @return string
@@ -120,6 +121,22 @@ class SettingsManager
             return null;
         }
         return $this->settings[$key]['validation_rule'];
+    }
+
+    /**
+     * Remove the value the setting array in memory
+     *
+     * @param $key
+     *
+     * @return $this
+     */
+    public function remove($key)
+    {
+        if (array_key_exists($key, $this->settings)) {
+            unset($this->settings[$key]);
+        }
+
+        return $this;
     }
 
     /**
@@ -185,7 +202,7 @@ class SettingsManager
      * @param $key
      * @param bool $disableCache
      *
-     * @return \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Model|object|Padosoft\Laravel\Settings\Settings|null
+     * @return \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Model|object|\Padosoft\Laravel\Settings\Settings|null
      */
     public function getModel($key, $disableCache = false)
     {
@@ -197,6 +214,37 @@ class SettingsManager
         return $query->where('key', $key)->first();
     }
 
+    public function persistToFile(): bool
+    {
+
+        $file = storage_path('settings.php');
+        try {
+            return file_put_contents($file, '<?php' . PHP_EOL . 'return ' . var_export($this->settings, true) . ';');
+        } catch (\Throwable $exception) {
+            Log::error('Impossibile leggere i settings dal file ' . $file);
+        }
+
+        return false;
+    }
+
+    protected function loadFromFile(): bool
+    {
+        $file = storage_path('settings.php');
+
+        try {
+            if (!file_exists($file)) {
+                return false;
+            }
+
+            $this->settings = require($file);
+            return true;
+        } catch (\Throwable $exception) {
+            Log::error('Impossibile leggere i settings dal file ' . $file);
+        }
+
+        return false;
+    }
+
     /**
      * @return bool
      */
@@ -205,14 +253,33 @@ class SettingsManager
         if (!hasDbSettingsTable() || !config('padosoft-settings.enabled', false)) {
             return false;
         }
+        if ($this->loadFromFile()) {
+            return true;
+        }
+
         $settings = Settings::where('load_on_startup', '=', 1)
+            ->orWhere('config_override', '<>', '')
             ->get();
+
         foreach ($settings as $setting) {
             $key = $setting->key;
             $value = $setting->value;
             $validation_rule = is_null($setting->validation_rules) ? null : $setting->validation_rules;
             $this->set($key, $value, $validation_rule);
+            if ($setting->config_override === '' || $setting->config_override === null) {
+                continue;
+            }
+            $keys = explode('|', $setting->config_override);
+            foreach ($keys as $key) {
+                if (\is_bool(config($key))) {
+                    $value = (bool)$value;
+                    $validation_rules = 'boolean';
+                }
+                config([$key => $this->validate($key, $value, $validation_rule, true, false)]);
+            }
         }
+
+        $this->persistToFile();
 
         return true;
     }
@@ -222,24 +289,7 @@ class SettingsManager
      */
     public function overrideConfig()
     {
-        if (!hasDbSettingsTable() || !config('padosoft-settings.enabled', false)) {
-            return false;
-        }
-        $settings = Settings::where('config_override', '<>', '')->get();
-        foreach ($settings as $setting) {
-            $keys = explode('|', $setting->config_override);
-            $value = $setting->value;
-            $validation_rules = $setting->validation_rules;
-            foreach ($keys as $key) {
-                if (\is_bool(config($key))) {
-                    $value = (bool)$value;
-                    $validation_rules = 'boolean';
-                }
-                config([$key => $this->validate($key, $value, $validation_rules, true, false)]);
-            }
-        }
-
-        return true;
+        return $this->loadOnStartUp();
     }
 
     /**
@@ -483,7 +533,7 @@ class SettingsManager
         }
         Log::channel('console')->info(PHP_EOL . PHP_EOL . 'UPDATE DATABASE:');
 
-        return ['id' => $id,'records' => $records];
+        return ['id' => $id, 'records' => $records];
     }
 
     /**
@@ -494,7 +544,7 @@ class SettingsManager
         //Create list options for validation
         $validation_base = 'string';
         //Base Validation Rules
-        $typeCheck = ['string' => 'string','boolean' => 'boolean','numeric' => 'numeric','integer' => 'integer'];
+        $typeCheck = ['string' => 'string', 'boolean' => 'boolean', 'numeric' => 'numeric', 'integer' => 'integer'];
         //Build Validations Rules from config file
         if (config('padosoft-settings.cast') !== null && is_array(config('padosoft-settings.cast'))) {
             $extra = config('padosoft-settings.cast');
@@ -509,7 +559,7 @@ class SettingsManager
      * @param array $recognize_rules
      * @return bool
      */
-    public function recognize(string $value, array $recognize_rules = []):bool
+    public function recognize(string $value, array $recognize_rules = []): bool
     {
         foreach ($recognize_rules as $ruleData) {
             $ruleDataArray = explode(':', $ruleData, 2);
@@ -530,7 +580,6 @@ class SettingsManager
         }
         return true;
     }
-
 
 
     /**
@@ -622,7 +671,7 @@ class SettingsManager
             return 'custom';
         }
         $validation_base = 'string';
-        $typeCheck = ['boolean','integer','numeric','string'];
+        $typeCheck = ['boolean', 'integer', 'numeric', 'string'];
         if (config('padosoft-settings.cast') !== null && is_array(config('padosoft-settings.cast'))) {
             $keys = array_keys(config('padosoft-settings.cast'));
             $typeCheck = array_merge($keys, $typeCheck);
@@ -668,6 +717,8 @@ class SettingsManager
             Log::error('Validation not exists on key ' . $key . ':' . serialize($rule));
             Log::error($error->getMessage());
         }
+
+        return null;
     }
 
     /**
@@ -681,8 +732,8 @@ class SettingsManager
         //Genera il tipo di valore raccogliendo dati da config e validation_rules
         $type = self::typeOfValueFromValidationRule($validation_rules);
         //Se Validazione disattivata non valida
-        $ruleString =  self::getRuleString($type, $validation_rules);
-        $rule =  self::getRule($ruleString);
+        $ruleString = self::getRuleString($type, $validation_rules);
+        $rule = self::getRule($ruleString);
         return $rule;
     }
 }
