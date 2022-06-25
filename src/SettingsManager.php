@@ -42,10 +42,10 @@ class SettingsManager
         $appo = $this->getModel($key);
         if (!is_null($appo)) {
             //Quando salva in cache fa la validazione ma non il cast
-            $this->set($key, $appo->value, is_null($appo->validation_rules) ? null : $appo->validation_rules);
+            $this->set($key, $appo->value, is_null($appo->validation_rules) ? null : $appo->validation_rules, $appo->config_override);
         } else {
             //Il valore di default non fa ne validazione ne cast
-            $this->set($key, $default, '');
+            $this->set($key, $default, '', '');
         }
         //Restituisce il valore dalla memoria effettuando il cast e validazione
         return $this->getMemoryValue($key, $validate, $cast);
@@ -147,7 +147,7 @@ class SettingsManager
      *
      * @return $this
      */
-    public function set($key, $value, $validation_rule = null)
+    public function set($key, $value, $validation_rule = null, $config_override = null)
     {
         //$this->validate($value, $validation_rule);
         if (
@@ -159,6 +159,7 @@ class SettingsManager
             $value = Crypt::encrypt($value);
         }
         $this->settings[$key]['value'] = $value;
+        $this->settings[$key]['config_override'] = $config_override;
         $this->settings[$key]['validation_rule'] = $validation_rule;
         return $this;
     }
@@ -191,9 +192,9 @@ class SettingsManager
      * @param null $validation_rule
      * @return mixed
      */
-    public function setAndStore($key, $valore, $validation_rule = null)
+    public function setAndStore($key, $valore, $validation_rule = null, $config_override = '')
     {
-        return $this->set($key, $valore, $validation_rule)->store();
+        return $this->set($key, $valore, $validation_rule, $config_override)->store();
     }
 
     /**
@@ -237,7 +238,14 @@ class SettingsManager
             }
 
             $this->settings = require($file);
-            return true;
+
+            if (count(array_filter($this->settings, function ($item) {
+                    return array_key_exists('config_override', $item);
+                })) ===count($this->settings)) {
+                return true;
+            }
+            $this->settings=[];
+            return false;
         } catch (\Throwable $exception) {
             Log::error('Impossibile leggere i settings dal file ' . $file);
         }
@@ -265,18 +273,7 @@ class SettingsManager
             $key = $setting->key;
             $value = $setting->value;
             $validation_rule = is_null($setting->validation_rules) ? null : $setting->validation_rules;
-            $this->set($key, $value, $validation_rule);
-            if ($setting->config_override === '' || $setting->config_override === null) {
-                continue;
-            }
-            $keys = explode('|', $setting->config_override);
-            foreach ($keys as $key) {
-                if (\is_bool(config($key))) {
-                    $value = (bool)$value;
-                    $validation_rules = 'boolean';
-                }
-                config([$key => $this->validate($key, $value, $validation_rule, true, false)]);
-            }
+            $this->set($key, $value, $validation_rule, $setting->config_override);
         }
 
         $this->persistToFile();
@@ -289,7 +286,23 @@ class SettingsManager
      */
     public function overrideConfig()
     {
-        return $this->loadOnStartUp();
+        $this->loadOnStartUp();
+        foreach ($this->settings as $chiave => $setting) {
+
+            if ($setting['config_override'] === null || $setting['config_override'] === '') {
+                continue;
+            }
+            $keys = explode('|', $setting['config_override']);
+            foreach ($keys as $key) {
+                if (\is_bool(config($key))) {
+                    $value = (bool)$setting['value'];
+                    $validation_rules = 'boolean';
+                }
+                config([$key => $this->validate($chiave, $setting['value'], $setting['validation_rule'], true, false)]);
+            }
+
+        }
+        return true;
     }
 
     /**

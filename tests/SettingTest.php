@@ -33,6 +33,20 @@ class SettingTest extends TestCase
     }
 
     /** @test */
+    public function itCanOverrideConfig()
+    {
+        $returnValue = \SettingsManager::loadOnStartUp();
+        $this->assertTrue($returnValue);
+        $model = new Settings();
+        $model->key = 'app.name';
+        $model->config_override = 'app.name';
+        $model->value = 'Settings manager';
+        $model->save();
+        $returnValue = \SettingsManager::overrideConfig();
+        $this->assertEquals('Settings manager',config('app.name'));
+    }
+
+    /** @test */
     public function settingsManagerCanStoreFile()
     {
         @unlink(storage_path('settings.php'));
@@ -49,6 +63,7 @@ class SettingTest extends TestCase
             [
                 'value'=>'fake_value'.time(),
                 'validation_rule'=>'string',
+                'config_override'=>'',
             ];
         file_put_contents(storage_path('settings.php'),'<?php return '.var_export($fake_settings,true).';');
         $returnValue = \SettingsManager::loadOnStartUp();
