@@ -19,6 +19,7 @@ class SettingsManager
     protected $settings = [];
     protected $flag_validate = true;
     protected $flag_cast = true;
+    protected $dirties = [];
 
     public function __construct()
     {
@@ -158,9 +159,15 @@ class SettingsManager
         ) {
             $value = Crypt::encrypt($value);
         }
+        if (!array_key_exists($key,$this->settings)){
+            $this->dirties[$key] = $value;
+        }else if ($this->settings[$key]['value'] !== $value) {
+            $this->dirties[$key] = $this->settings[$key]['value'];
+        }
         $this->settings[$key]['value'] = $value;
         $this->settings[$key]['config_override'] = $config_override;
         $this->settings[$key]['validation_rule'] = $validation_rule;
+
         return $this;
     }
 
@@ -171,6 +178,9 @@ class SettingsManager
     public function store(): SettingsManager
     {
         foreach ($this->settings as $key => $valore) {
+            if (!array_key_exists($key, $this->dirties)) {
+                continue;
+            }
             $model = $this->getModel($key, true);
             if ($model === null) {
                 throw new \Exception("Failed to update settings key '" . $key . " on Database. This key does not exist. You must create the key before you can perform an update.");
@@ -179,6 +189,9 @@ class SettingsManager
                 $model->validation_rules = $this->getMemoryValidationRule($key);
             }
             $model->value = $this->getMemoryValue($key, true, false);
+            if (!$model->isDirty()) {
+                continue;
+            }
             $model->save();
         }
 
@@ -241,10 +254,10 @@ class SettingsManager
 
             if (count(array_filter($this->settings, function ($item) {
                     return array_key_exists('config_override', $item);
-                })) ===count($this->settings)) {
+                })) === count($this->settings)) {
                 return true;
             }
-            $this->settings=[];
+            $this->settings = [];
             return false;
         } catch (\Throwable $exception) {
             Log::error('Impossibile leggere i settings dal file ' . $file);

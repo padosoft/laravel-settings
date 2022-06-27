@@ -31,9 +31,17 @@ class Settings extends Model
      */
     protected static function booted()
     {
-        static::saved(function ($model) {
+        static::created(function ($model) {
             settings()->set($model->key, $model->value, $model->validation_rules, $model->config_override);
             settings()->persistToFile();
+
+        });
+        static::updated(function ($model) {
+            settings()->set($model->key, $model->value, $model->validation_rules, $model->config_override);
+            if ($model->wasChanged(['value', 'validation_rules','config_override']))
+            {
+                settings()->persistToFile();
+            }
         });
         static::deleted(function ($model) {
             settings()->remove($model->key);
