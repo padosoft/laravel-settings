@@ -6,6 +6,7 @@
 
 namespace Padosoft\Laravel\Settings;
 
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Log;
@@ -228,6 +229,20 @@ class SettingsManager
         return $query->where('key', $key)->first();
     }
 
+    public function clearCache(): bool
+    {
+        try {
+            if (file_exists(storage_path('settings.php')))
+            {
+                unlink(storage_path('settings.php'));
+            }
+            Artisan::call("modelCache:clear", ['--model' => 'Padosoft\Laravel\Settings\Settings']);
+            return true;
+        } catch (\Throwable $exception) {
+            Log::error('Impossibile svuotare cache dei settings '.$exception->getMessage() );
+        }
+        return false;
+    }
     public function persistToFile(): bool
     {
 
