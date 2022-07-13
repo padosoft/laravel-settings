@@ -49,9 +49,9 @@ class SettingTest extends TestCase
     /** @test */
     public function settingsManagerCanStoreFile()
     {
-        @unlink(storage_path('settings.php'));
+        @unlink($this->getSettingsFilePath());
         $returnValue = \SettingsManager::loadOnStartUp();
-        $this->assertTrue(file_exists(storage_path('settings.php')));
+        $this->assertTrue(file_exists($this->getSettingsFilePath()));
     }
 
     /** @test */
@@ -65,7 +65,7 @@ class SettingTest extends TestCase
                 'validation_rule'=>'string',
                 'config_override'=>'',
             ];
-        file_put_contents(storage_path('settings.php'),'<?php return '.var_export($fake_settings,true).';');
+        file_put_contents($this->getSettingsFilePath(), '<?php return '.var_export($fake_settings, true).';');
         $returnValue = \SettingsManager::loadOnStartUp();
         $this->assertEquals($fake_settings[$key]['value'],settings($key));
     }
@@ -79,8 +79,8 @@ class SettingTest extends TestCase
 
         $model->save();
 
-        $this->assertTrue(file_exists(storage_path('settings.php')));
-        $settings=require(storage_path('settings.php'));
+        $this->assertTrue(file_exists($this->getSettingsFilePath()));
+        $settings=require($this->getSettingsFilePath());
         $this->assertIsArray($settings);
         $this->assertArrayHasKey($model->key,$settings);
         $this->assertEquals($settings[$model->key]['value'],$model->value);
@@ -99,8 +99,8 @@ class SettingTest extends TestCase
         $model->value = 'test_value2';
         $model->save();
 
-        $this->assertTrue(file_exists(storage_path('settings.php')));
-        $settings=require(storage_path('settings.php'));
+        $this->assertTrue(file_exists($this->getSettingsFilePath()));
+        $settings=require($this->getSettingsFilePath());
         $this->assertIsArray($settings);
         $this->assertArrayHasKey($model->key,$settings);
         $this->assertEquals('test_value2',$settings[$model->key]['value']);
@@ -115,15 +115,15 @@ class SettingTest extends TestCase
         $model->value = 'test_value';
 
         $model->save();
-        $this->assertTrue(file_exists(storage_path('settings.php')));
-        $settings=require(storage_path('settings.php'));
+        $this->assertTrue(file_exists($this->getSettingsFilePath()));
+        $settings=require($this->getSettingsFilePath());
         $this->assertIsArray($settings);
         $this->assertArrayHasKey($model->key,$settings);
 
         $model->delete();
 
 
-        $settings=require(storage_path('settings.php'));
+        $settings=require($this->getSettingsFilePath());
         $this->assertIsArray($settings);
         $this->assertArrayNotHasKey($model->key,$settings);
 
@@ -345,6 +345,14 @@ class SettingTest extends TestCase
         $this->expectException(DecryptException::class);
         Settings::where('key', 'test')->first()->value;
         //$this->assertEquals('test_value',);
+    }
+
+    /**
+     * @return string
+     */
+    protected function getSettingsFilePath(): string
+    {
+        return storage_path('settings.tpl');
     }
 
 }

@@ -4,14 +4,14 @@
 
 [![CircleCI](https://circleci.com/gh/padosoft/laravel-settings.svg?style=shield)](https://circleci.com/gh/padosoft/laravel-settings)
 
-Persistent on database, application-wide settings for Laravel.
+Persistent on database, fast in memory, application-wide settings for Laravel.
 
 Performance are not invalidated because settings are automatic cached when retrived from database.
 
 ## Requirements
 
     PHP >= 7.1.3
-    Laravel 5.8.*|6.*|7.*|8.* (For Laravel framework 5.6.* or 5.7.* please use v1.*)
+    Laravel 5.8.*|6.*|7.*|8.*|9.* (For Laravel framework 5.6.* or 5.7.* please use v1.*)
 
 ## Installation 
     

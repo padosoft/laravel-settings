@@ -232,9 +232,9 @@ class SettingsManager
     public function clearCache(): bool
     {
         try {
-            if (file_exists(storage_path('settings.php')))
+            if (file_exists($this->getSettingsFilePath()))
             {
-                unlink(storage_path('settings.php'));
+                unlink($this->getSettingsFilePath());
             }
             Artisan::call("modelCache:clear", ['--model' => 'Padosoft\Laravel\Settings\Settings']);
             return true;
@@ -246,7 +246,7 @@ class SettingsManager
     public function persistToFile(): bool
     {
 
-        $file = storage_path('settings.php');
+        $file = $this->getSettingsFilePath();
         try {
             return file_put_contents($file, '<?php' . PHP_EOL . 'return ' . var_export($this->settings, true) . ';');
         } catch (\Throwable $exception) {
@@ -258,7 +258,7 @@ class SettingsManager
 
     protected function loadFromFile(): bool
     {
-        $file = storage_path('settings.php');
+        $file = $this->getSettingsFilePath();
 
         try {
             if (!file_exists($file)) {
@@ -776,5 +776,13 @@ class SettingsManager
         $ruleString = self::getRuleString($type, $validation_rules);
         $rule = self::getRule($ruleString);
         return $rule;
+    }
+
+    /**
+     * @return string
+     */
+    public function getSettingsFilePath(): string
+    {
+        return storage_path('settings.tpl');
     }
 }
