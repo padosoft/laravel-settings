@@ -275,7 +275,8 @@ class SettingsManager
             $this->settings = [];
             return false;
         } catch (\Throwable $exception) {
-            Log::error('Impossibile leggere i settings dal file ' . $file);
+            $this->settings = [];
+            Log::error('Impossibile leggere i settings dal file ' . $file.PHP_EOL.'Exception recevied: '.$exception->getMessage().PHP_EOL.$exception->getTraceAsString());
         }
 
         return false;
