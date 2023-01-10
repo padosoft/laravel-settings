@@ -266,7 +266,11 @@ class SettingsManager
             }
 
             $this->settings = require($file);
-
+            if (!is_array($this->settings))
+            {
+                $this->settings = [];
+                return false;
+            }
             if (count(array_filter($this->settings, function ($item) {
                     return array_key_exists('config_override', $item);
                 })) === count($this->settings)) {
