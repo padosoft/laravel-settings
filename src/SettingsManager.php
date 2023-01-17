@@ -590,7 +590,7 @@ class SettingsManager
         //Create list options for validation
         $validation_base = 'string';
         //Base Validation Rules
-        $typeCheck = ['string' => 'string', 'boolean' => 'boolean', 'numeric' => 'numeric', 'integer' => 'integer'];
+        $typeCheck = ['string' => 'string', 'boolean' => 'boolean', 'numeric' => 'numeric', 'integer' => 'integer', 'float' => 'float'];
         //Build Validations Rules from config file
         if (config('padosoft-settings.cast') !== null && is_array(config('padosoft-settings.cast'))) {
             $extra = config('padosoft-settings.cast');
@@ -703,6 +703,8 @@ class SettingsManager
                 return CastSettings::boolean($value);
             case 'numeric':
                 return CastSettings::numeric($value);
+            case 'float':
+                return CastSettings::float($value);
             default:
                 //Se non trova niente effettua un cast in string
                 return CastSettings::string($value);
@@ -719,7 +721,7 @@ class SettingsManager
             return 'custom';
         }
         $validation_base = 'string';
-        $typeCheck = ['boolean', 'integer', 'numeric', 'string'];
+        $typeCheck = ['boolean', 'integer', 'numeric', 'float', 'string'];
         if (config('padosoft-settings.cast') !== null && is_array(config('padosoft-settings.cast'))) {
             $keys = array_keys(config('padosoft-settings.cast'));
             $typeCheck = array_merge($keys, $typeCheck);

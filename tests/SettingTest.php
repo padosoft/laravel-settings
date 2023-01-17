@@ -224,9 +224,6 @@ class SettingTest extends TestCase
             ]);
             $this->assertSame(settings($key), $value);
         }
-
-
-
     }
 
     public function testSetAndStoreWithValidation(){
