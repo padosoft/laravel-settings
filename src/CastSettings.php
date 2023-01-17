@@ -24,6 +24,6 @@ class CastSettings
 
     public static function numeric($value)
     {
-        return (int)$value;
+        return (float)$value;
     }
 }

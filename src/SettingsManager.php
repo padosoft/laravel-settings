@@ -697,6 +697,8 @@ class SettingsManager
             return $class::$method($value);
         }
         switch ($type_of_value) {
+            case 'integer':
+                return CastSettings::integer($value);
             case 'boolean':
                 return CastSettings::boolean($value);
             case 'numeric':
