@@ -6,7 +6,7 @@
 
 Persistent on database, fast in memory, application-wide settings for Laravel.
 
-Performance are not invalidated because settings are automatic cached when retrived from database.
+Performance are not invalidated because settings are automatic cached when retrived from database. Da completare docs.
 
 ## Requirements
 
