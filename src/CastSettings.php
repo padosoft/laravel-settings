@@ -26,9 +26,4 @@ class CastSettings
     {
         return (int)$value;
     }
-
-    public static function float($value)
-    {
-        return (int)$value;
-    }
 }

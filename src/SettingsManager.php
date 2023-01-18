@@ -351,7 +351,6 @@ class SettingsManager
         //Controlla se Esiste la chiave
         //Se non esiste
         $setting = Settings::where('key', $key)->first();
-
         if ($setting === null) {
             //Valida il valore
             $this->validate($key, $value, $validation_rule);
@@ -555,7 +554,7 @@ class SettingsManager
             $logValidate = '';
             foreach ($typeCheck as $validate => $rules) {
                 $type = $this->typeOfValueFromValidationRule($validate);
-                $ruleString = $this->getRuleString($validate, $type);
+                $ruleString = $this->getRuleString($type, $validate);
                 $rule = $this->getRule($ruleString);
                 try {
                     try {
@@ -590,7 +589,7 @@ class SettingsManager
         //Create list options for validation
         $validation_base = 'string';
         //Base Validation Rules
-        $typeCheck = ['string' => 'string', 'boolean' => 'boolean', 'numeric' => 'numeric', 'integer' => 'integer', 'float' => 'float'];
+        $typeCheck = ['string' => 'string', 'boolean' => 'boolean', 'numeric' => 'numeric', 'integer' => 'integer'];
         //Build Validations Rules from config file
         if (config('padosoft-settings.cast') !== null && is_array(config('padosoft-settings.cast'))) {
             $extra = config('padosoft-settings.cast');
@@ -670,11 +669,10 @@ class SettingsManager
         //recupera la stringa di validazione dal config solo se presente
         //il valore validate non è obbligatorio può essere un valore utilizzabile con Validate o un regex
         if (config('padosoft-settings.cast.' . $type . '.validate') !== null) {
-            $ruleString = config('padosoft-settings.cast.' . $type . '.validate');
-        } else {
-            $ruleString = $validation_rules;
+            return config('padosoft-settings.cast.' . $type . '.validate');
         }
-        return $ruleString;
+
+        return $validation_rules;
     }
 
 
@@ -703,8 +701,6 @@ class SettingsManager
                 return CastSettings::boolean($value);
             case 'numeric':
                 return CastSettings::numeric($value);
-            case 'float':
-                return CastSettings::float($value);
             default:
                 //Se non trova niente effettua un cast in string
                 return CastSettings::string($value);
@@ -721,7 +717,7 @@ class SettingsManager
             return 'custom';
         }
         $validation_base = 'string';
-        $typeCheck = ['boolean', 'integer', 'numeric', 'float', 'string'];
+        $typeCheck = ['boolean', 'integer', 'numeric', 'string'];
         if (config('padosoft-settings.cast') !== null && is_array(config('padosoft-settings.cast'))) {
             $keys = array_keys(config('padosoft-settings.cast'));
             $typeCheck = array_merge($keys, $typeCheck);
@@ -761,6 +757,9 @@ class SettingsManager
                 return SettingsManager::cast($value, $type);
             } catch (ValidationException $e) {
                 Log::error($key . ' :: ' . $e->getMessage());
+                return null;
+            } catch (\Exception $ex){
+                Log::error($key . ' :: ' . $ex->getMessage());
                 return null;
             }
         } catch (\Exception $error) {
