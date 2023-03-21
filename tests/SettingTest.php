@@ -169,7 +169,7 @@ class SettingTest extends TestCase
         $this->assertNotEquals(settings()->getModel('test',true)->value,'value2');
     }
 
-    public function newdataProvider(){
+    public static function newdataProvider(){
         return [
             'Email in numero' => [
                 'EmailPino',
