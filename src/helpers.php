@@ -112,11 +112,10 @@ if (!function_exists('settingsIsValid')) {
 if (!function_exists('getMixValidationRules')) {
     /**
      * Get the validation rule.
-     * @param string $key
-     * @param $default
+     * @param $validation_rules
      * @return array|false|string[]
      */
-    function getMixValidationRules(string $key, $default)
+    function getMixValidationRules($validation_rules)
     {
         return app('Padosoft\Laravel\Settings\SettingsManager')->getMixValidationRules($validation_rules);
     }
