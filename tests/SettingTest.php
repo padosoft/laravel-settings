@@ -330,7 +330,7 @@ class SettingTest extends TestCase
             //throw new \Exception($e->getMessage(),$e->getCode());
         }
         if($exception){
-            $this->assertFalse($settingManager->get($key)===$value);
+            $this->assertFalse(settings($key)===$value);
         }else{
             $this->assertSame(settings($key)??'',$value??'');
         }

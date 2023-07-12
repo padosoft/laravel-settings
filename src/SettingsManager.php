@@ -331,7 +331,7 @@ class SettingsManager
                     $value = (bool)$setting['value'];
                     $validation_rules = 'boolean';
                 }
-                config([$key => $this->validate($chiave, $setting['value'], $setting['validation_rule'], true, false)]);
+                config([$key => $this->validate($chiave, $setting['value'], $setting['validation_rule'], true, false)??'']);
             }
 
         }
@@ -746,31 +746,32 @@ class SettingsManager
         $type = self::typeOfValueFromValidationRule($validation_rules);
         $rule = self::getMixValidationRules($validation_rules);
         //try {
-            try {
-                if ($validate === true) {
-                    Validator::make(['value' => $value], ['value' => $rule])->validate();
-                }
-
-                //Effettua un cast dinamico del valore
-                if ($cast === false) {
-                    return $value;
-                }
-                return SettingsManager::cast($value, $type);
-            } catch (ValidationException $e) {
-                if($throw)
-                {
-                    throw $e;
-                }
-                Log::error($key . ' :: ' . $e->getMessage());
-                return null;
-            } catch (\Exception $ex){
-                if($throw)
-                {
-                    throw $ex;
-                }
-                Log::error($key . ' :: ' . $ex->getMessage());
-                return null;
+        try {
+            if ($validate === true) {
+                Validator::make(['value' => $value], ['value' => $rule])->validate();
             }
+
+            //Effettua un cast dinamico del valore
+            if ($cast === false) {
+                return $value;
+            }
+            return SettingsManager::cast($value, $type);
+        } catch (ValidationException $e) {
+            if($throw)
+            {
+                throw $e;
+            }
+            Log::error($key . ' :: ' . $e->getMessage());
+
+            return null;
+        } catch (\Exception $ex){
+            if($throw)
+            {
+                throw $ex;
+            }
+            Log::error($key . ' :: ' . $ex->getMessage());
+            return null;
+        }
         /*} catch (\Exception $error) {
             Log::error('Validation not exists on key ' . $key . ':' . serialize($rule));
             Log::error($error->getMessage());
