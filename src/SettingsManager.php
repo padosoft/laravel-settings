@@ -39,7 +39,7 @@ class SettingsManager
     public function get($key, $default = null, $validate = true, $cast = true)
     {
         if (array_key_exists($key, $this->settings)) {
-            return $this->getMemoryValue($key);
+            return $this->getMemoryValue($key, $validate, $cast);
         }
         $appo = $this->getModel($key);
         if (!is_null($appo)) {
@@ -353,7 +353,7 @@ class SettingsManager
         $setting = Settings::where('key', $key)->first();
         if ($setting === null) {
             //Valida il valore
-            $this->validate($key, $value, $validation_rule);
+            $this->validate($key, $value, $validation_rule,true,true,true);
             //Crea e esce
             Settings::create([
                 'key' => $key,
@@ -370,8 +370,8 @@ class SettingsManager
         if ($validation_rule === null) {
             $validation_rule = is_null($setting->validation_rules) ? null : $setting->validation_rules;
         }
-        $this->validate($key, $value, $validation_rule);
-        $setting->value = $value;
+        $this->validate($key, $value, $validation_rule,true,true,true);
+        $setting->value = $value??'';
         $setting->descr = $description;
         $setting->validation_rules = $validation_rule;
         $setting->config_override = $config_override;
@@ -737,7 +737,7 @@ class SettingsManager
      * @return bool|int|mixed|string|string[]
      * @throws \Exception
      */
-    public function validate($key, $value, $validation_rules = null, $validate = true, $cast = true)
+    public function validate($key, $value, $validation_rules = null, $validate = true, $cast = true,$throw=false)
     {
         //Se non esiste validazione o se la validazione è disattivata restituisce il valore non validato
         if ($validation_rules === '' || $validation_rules === null) {
@@ -745,29 +745,38 @@ class SettingsManager
         }
         $type = self::typeOfValueFromValidationRule($validation_rules);
         $rule = self::getMixValidationRules($validation_rules);
-        try {
+        //try {
             try {
                 if ($validate === true) {
                     Validator::make(['value' => $value], ['value' => $rule])->validate();
                 }
+
                 //Effettua un cast dinamico del valore
                 if ($cast === false) {
                     return $value;
                 }
                 return SettingsManager::cast($value, $type);
             } catch (ValidationException $e) {
+                if($throw)
+                {
+                    throw $e;
+                }
                 Log::error($key . ' :: ' . $e->getMessage());
                 return null;
             } catch (\Exception $ex){
+                if($throw)
+                {
+                    throw $ex;
+                }
                 Log::error($key . ' :: ' . $ex->getMessage());
                 return null;
             }
-        } catch (\Exception $error) {
+        /*} catch (\Exception $error) {
             Log::error('Validation not exists on key ' . $key . ':' . serialize($rule));
             Log::error($error->getMessage());
-        }
+        }*/
 
-        return null;
+        //return null;
     }
 
     /**
@@ -776,14 +785,25 @@ class SettingsManager
      */
     public function getMixValidationRules($validation_rules)
     {
-        //Se flag_cast = false imposta la validazione su stringa
-        //$validation_rules = $cast ? $validation_rules : 'string';
-        //Genera il tipo di valore raccogliendo dati da config e validation_rules
-        $type = self::typeOfValueFromValidationRule($validation_rules);
-        //Se Validazione disattivata non valida
-        $ruleString = self::getRuleString($type, $validation_rules);
-        $rule = self::getRule($ruleString);
-        return $rule;
+        //questo è stato aggiunto perchè altrimenti nella validazione i valori vuoti o null passerebbero sempre
+        if (strpos($validation_rules,'nullable')===false && strpos($validation_rules,'sometimes')===false && ($validation_rules??'')!=='')
+        {
+            $validation_rules='required|'.$validation_rules;
+        }
+        $validation_rules=explode('|',$validation_rules);
+        $rules=[];
+        foreach ($validation_rules as $single_rule)
+        {
+            //Se flag_cast = false imposta la validazione su stringa
+            //$validation_rules = $cast ? $validation_rules : 'string';
+            //Genera il tipo di valore raccogliendo dati da config e validation_rules
+            $type = self::typeOfValueFromValidationRule($single_rule);
+            //Se Validazione disattivata non valida
+            $ruleString = self::getRuleString($type, $single_rule);
+            $rules = array_merge($rules,self::getRule($ruleString));
+        }
+
+        return $rules;
     }
 
     /**

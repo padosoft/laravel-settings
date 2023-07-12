@@ -37,6 +37,7 @@ abstract class TestCase extends Orchestra
         return [
             ServiceProvider::class,
             Service::class,
+            ValidatorServiceProvider::class,
         ];
     }
 
@@ -94,7 +95,23 @@ abstract class TestCase extends Orchestra
         (new \UpdateSettingsTable())->up();
         include_once __DIR__ . '/../src/Migrations/2021_11_06_164212_add_validation_rules_table.php';
         (new \AddValidationRulesTable())->up();
+        include_once __DIR__ . '/migrations/TestMigration.php';
+        (new \TestMigration())->up();
+        $fake_settings['fake_value']=
+            [
+                'descr'=>'test complex',
+                'key'=>'smartshop.email_notifiche.giacenza_negativa_articolo',
+                'value'=>'',
+                'validation_rules'=>'nullable|isEmailList',
+                'load_on_startup'=>1
+            ];
+        file_put_contents(storage_path('settings.tpl'), '<?php return '.var_export($fake_settings, true).';');
         $app['config']->set('padosoft-settings.enabled', true);
+        $app['config']->set('padosoft-settings.cast', ['isEmailList' => [
+            'class' => \Padosoft\Laravel\Settings\Test\ListSemiColonEmailCast::class,
+            'validate' => 'isEmailList',
+            'recognize' => ['contains:;']
+        ]]);
         \Illuminate\Support\Facades\Cache::forget('hasDbSettingsTable');
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Padosoft\Laravel\Settings\Test;
 
+use Illuminate\Validation\ValidationException;
 use Padosoft\Laravel\Settings\Exceptions\DecryptException;
 use Padosoft\Laravel\Settings\Settings;
 use Padosoft\Laravel\Settings\SettingsManager;
@@ -176,15 +177,48 @@ class SettingTest extends TestCase
                 'Numero di email',
                 'numeric',
                 'pino@lapianta.com',
-                '2',
+                2,
                 true
             ],
+
             'Email in email' => [
                 'Email1',
                 'Email',
                 'email',
                 'pino@lapianta.com',
                 'pino@lapianta2.com',
+                false
+            ],
+            'Empty in email' => [
+                'Email1',
+                'Email',
+                'email',
+                '',
+                'pino@lapianta2.com',
+                true
+            ],
+            'Valore Not nullable' => [
+                'EmailNotNullable',
+                'Email',
+                'isEmailList',
+                '',
+                'pino@lapianta2.com',
+                true
+            ],
+            'Valore nullable' => [
+                'EmailNullable',
+                'Email',
+                'nullable|email',
+                null,
+                '',
+                false
+            ],
+            'Valore nullable2' => [
+                'EmailNullable2',
+                'Email',
+                'nullable|email',
+                '',
+                '',
                 false
             ],
             'Numero in email' => [
@@ -209,20 +243,29 @@ class SettingTest extends TestCase
      * @dataProvider newdataProvider
      */
     public function test_newdata($key,$descr,$validation_rule,$value,$valueSupport,$exception){
-        $newSetting = new SettingsManager();
-        try {
-           $newSetting->UpdateOrCreate($key,$descr,$value,$validation_rule);
-        }catch (\Exception $e){
-            $this->expectExceptionCode(0);
-            $this->expectExceptionMessage("Value: {$value} is not valid.");
-        }
+
+
+
+
+
+        settings()->UpdateOrCreate($key, $descr, $valueSupport, $validation_rule);
+        $this->assertDatabaseHas('settings', [
+            'key' => $key
+        ]);
+        $this->assertSame($valueSupport??'',settings()->getRaw($key)??'' );
         if($exception){
-            $this->assertNotSame(settings($key), $value);
+            $this->expectException(ValidationException::class);
+            $this->expectExceptionCode(0);
+            //$this->expectExceptionMessage(__('validation.'.$validation_rule,['attribute'=>'value']));//"Value: {$value} is not valid.");
+
+        }
+
+
+        settings()->UpdateOrCreate($key, $descr, $value, $validation_rule);
+        if($exception){
+            $this->assertSame($valueSupport??'',settings()->getRaw($key)??'' );
         }else{
-            $this->assertDatabaseHas('settings', [
-                'key' => $key
-            ]);
-            $this->assertSame(settings($key), $value);
+            $this->assertSame($value??'',settings()->getRaw($key)??'' );
         }
     }
 
@@ -289,7 +332,7 @@ class SettingTest extends TestCase
         if($exception){
             $this->assertFalse($settingManager->get($key)===$value);
         }else{
-            $this->assertSame(settings($key),$value);
+            $this->assertSame(settings($key)??'',$value??'');
         }
     }
 
