@@ -748,7 +748,7 @@ class SettingsManager
         //try {
         try {
             if ($validate === true) {
-                Validator::make(['value' => $value], ['value' => $rule])->validate();
+                Validator::make(['value' => $value??''], ['value' => $rule])->validate();
             }
 
             //Effettua un cast dinamico del valore
@@ -787,11 +787,18 @@ class SettingsManager
     public function getMixValidationRules($validation_rules)
     {
         //questo è stato aggiunto perchè altrimenti nella validazione i valori vuoti o null passerebbero sempre
-        if (strpos($validation_rules,'nullable')===false && strpos($validation_rules,'sometimes')===false && ($validation_rules??'')!=='')
+        if (strpos($validation_rules,'nullable')===false && strpos($validation_rules,'sometimes')===false && ($validation_rules??'')!==''
+            && strpos($validation_rules??'','regex:')===false)
         {
             $validation_rules='required|'.$validation_rules;
         }
-        $validation_rules=explode('|',$validation_rules);
+        if (strpos($validation_rules??'','regex:')===false)
+        {
+            $validation_rules=explode('|',$validation_rules);
+        }else{
+            $validation_rules=[$validation_rules];
+        }
+
         $rules=[];
         foreach ($validation_rules as $single_rule)
         {

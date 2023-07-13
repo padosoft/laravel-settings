@@ -237,6 +237,14 @@ class SettingTest extends TestCase
                 55,
                 false
             ],
+            'regex' => [
+                'regex',
+                'regex',
+                'regex:/(^[0-9,]+$)|(^.{0}$)/',
+                '17,15',
+                '17,15',
+                false
+            ],
         ];
     }
     /**
