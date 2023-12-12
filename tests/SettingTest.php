@@ -2,6 +2,7 @@
 
 namespace Padosoft\Laravel\Settings\Test;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Padosoft\Laravel\Settings\Exceptions\DecryptException;
 use Padosoft\Laravel\Settings\Settings;
@@ -46,8 +47,6 @@ class SettingTest extends TestCase
         $returnValue = \SettingsManager::overrideConfig();
         $this->assertEquals('Settings manager', config('app.name'));
     }
-
-
 
     /** @test */
     /*
@@ -356,6 +355,29 @@ class SettingTest extends TestCase
         }
     }
 
+    /** @test */
+    public function itReloadSettingsAfterExpire()
+    {
+        $settingManager = settings();
+        $settingManager->UpdateOrCreate('prova.1', 'Unit Test', 'ciao', 'string','',1);
+        $settingManager->loadOnStartUp();
+        $settingManager->setAndStore('prova.1', 'bye', 'string');
+        $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => 'bye', 'validation_rules' => 'string']);
+        $this->assertEquals('bye',$settingManager->get('prova.1'));
+        DB::connection('sqlite')->table('settings')->where('key','prova.1')->update(['value'=>'bye2']);
+        $settingManager->clearCache();
+        $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => 'bye2', 'validation_rules' => 'string']);
+        $this->assertEquals('bye',$settingManager->get('prova.1'));
+        $settingManager->setMemoryExpires(5);
+        $settingManager->clearCache();
+        sleep(5);
+        $this->assertEquals('bye2',$settingManager->get('prova.1'));
+        $settingManager->setMemoryExpires(600);
+        DB::connection('sqlite')->table('settings')->where('key','prova.1')->update(['value'=>'bye3']);
+        $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => 'bye3', 'validation_rules' => 'string']);
+        $settingManager->clearCache();
+        $this->assertEquals('bye2',$settingManager->get('prova.1'));
+    }
 
     /** @test */
     public function canCreateAndRetriveEncryptedSetting()

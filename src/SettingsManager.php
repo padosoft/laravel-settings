@@ -23,11 +23,31 @@ class SettingsManager
     protected bool $flag_cast = true;
     protected array $dirties = [];
 
+    //reload settings from redis/database after this time
+    protected int $memory_expires_seconds=600;
+    protected int $last_retrived_settings=0;
+
     public function __construct()
     {
         $this->dirties=[];
         //settings()->loadOnStartUp();
         //settings()->overrideConfig();
+    }
+
+    public function setMemoryExpires(int $seconds)
+    {
+        $this->memory_expires_seconds=$seconds;
+    }
+
+    protected function checkExpire()
+    {
+        if ($this->last_retrived_settings>0 && ($this->last_retrived_settings+$this->memory_expires_seconds)>time())
+        {
+            return;
+        }
+
+        $this->settings=[];
+        $this->loadOnStartUp();
     }
 
     /**
@@ -40,12 +60,13 @@ class SettingsManager
      */
     public function get(string $key, $default = null, bool $validate = false, bool $cast = true)
     {
+        $this->checkExpire();
         if (array_key_exists($key, $this->settings)) {
             return $this->getMemoryValue($key,false,$cast);
         }
 
         $redisValue = Redis::hget($this->redis_key,$key);
-        if ($redisValue!==false)
+        if ($redisValue!==false && $redisValue!==null  && $redisValue!=='')
         {
             $this->settings[$key]=json_decode($redisValue,true);
             return $this->getMemoryValue($key,false,$cast);
@@ -292,7 +313,7 @@ class SettingsManager
             $this->settings=array_map(function ($value){
                 return json_decode($value,true);
             },$redis);
-
+            $this->last_retrived_settings=time();
             return true;
         } catch (\Throwable $exception) {
             $this->settings = [];
@@ -330,7 +351,7 @@ class SettingsManager
             $this->settings[$setting->key]=$setting->toArray();
             Redis::hset($this->redis_key,$setting->key,$setting->toJson());
         }
-
+        $this->last_retrived_settings=time();
 
         return true;
     }
