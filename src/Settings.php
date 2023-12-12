@@ -13,8 +13,6 @@ use Padosoft\Laravel\Settings\Exceptions\DecryptException as SettingsDecryptExce
 
 class Settings extends Model
 {
-    use Cachable;
-
     public const PATTERN_EMAIL_ALIAS = '([a-z0-9\+_\-]+)*;([a-z0-9\+_\-]+)(\.[a-z0-9\+_\-]+)*@([a-z0-9\-]+\.)+[a-z]{2,6}$';
     public const PATTERN_MULTIPLE_NUMERIC_LIST_SEMICOLON = '(^[0-9;]+$)|(^.{0}$)';
     public const PATTERN_MULTIPLE_NUMERIC_LIST_COMMA = '(^[0-9,]+$)|(^.{0}$)';
@@ -33,19 +31,13 @@ class Settings extends Model
     {
         static::created(function ($model) {
             settings()->set($model->key, $model->value, $model->validation_rules, $model->config_override);
-            settings()->persistToFile();
 
         });
         static::updated(function ($model) {
             settings()->set($model->key, $model->value, $model->validation_rules, $model->config_override);
-            if ($model->wasChanged(['value', 'validation_rules','config_override']))
-            {
-                settings()->persistToFile();
-            }
         });
         static::deleted(function ($model) {
             settings()->remove($model->key);
-            settings()->persistToFile();
         });
 
     }

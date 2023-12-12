@@ -2,7 +2,6 @@
 
 namespace Padosoft\Laravel\Settings\Test;
 
-use GeneaLabs\LaravelModelCaching\Providers\Service;
 use Illuminate\Support\Facades\File;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Application;
@@ -36,8 +35,8 @@ abstract class TestCase extends Orchestra
     {
         return [
             ServiceProvider::class,
-            Service::class,
             ValidatorServiceProvider::class,
+            \Lunaweb\RedisMock\Providers\RedisMockServiceProvider::class
         ];
     }
 
@@ -63,6 +62,7 @@ abstract class TestCase extends Orchestra
             //'database' => $this->getSysTempDirectory().'/testbench.sqlite',
             'prefix' => '',
         ]);*/
+
         $app['config']->set('padosoft-settings.enabled', false);
         $app['config']->set('database.default', 'sqlite');
         $app['config']->set('database.connections.sqlite', [
@@ -70,6 +70,13 @@ abstract class TestCase extends Orchestra
             'database' => ':memory:',
             'prefix'   => '',
         ]);
+        $app['config']->set('database.redis.client', 'mock');
+        $app['config']->set('padosoft-settings.enabled', true);
+        $app['config']->set('padosoft-settings.cast', ['isEmailList' => [
+            'class' => \Padosoft\Laravel\Settings\Test\ListSemiColonEmailCast::class,
+            'validate' => 'isEmailList',
+            'recognize' => ['contains:;']
+        ]]);
     }
 
     /**
@@ -106,12 +113,7 @@ abstract class TestCase extends Orchestra
                 'load_on_startup'=>1
             ];
         file_put_contents(storage_path('settings.tpl'), '<?php return '.var_export($fake_settings, true).';');
-        $app['config']->set('padosoft-settings.enabled', true);
-        $app['config']->set('padosoft-settings.cast', ['isEmailList' => [
-            'class' => \Padosoft\Laravel\Settings\Test\ListSemiColonEmailCast::class,
-            'validate' => 'isEmailList',
-            'recognize' => ['contains:;']
-        ]]);
+
         \Illuminate\Support\Facades\Cache::forget('hasDbSettingsTable');
     }
 }

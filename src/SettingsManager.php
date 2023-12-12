@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Padosoft\Laravel\Settings\Exceptions\DecryptException as SettingsDecryptException;
@@ -17,13 +18,15 @@ use phpDocumentor\Reflection\DocBlock\Tags\Throws;
 
 class SettingsManager
 {
-    protected $settings = [];
-    protected $flag_validate = true;
-    protected $flag_cast = true;
-    protected $dirties = [];
+    protected string $redis_key = 'laravel_pds_settings';
+    protected array $settings = [];
+    protected bool $flag_validate = true;
+    protected bool $flag_cast = true;
+    protected array $dirties = [];
 
     public function __construct()
     {
+        $this->dirties=[];
         //settings()->loadOnStartUp();
         //settings()->overrideConfig();
     }
@@ -36,21 +39,35 @@ class SettingsManager
      *
      * @return mixed
      */
-    public function get($key, $default = null, $validate = true, $cast = true)
+    public function get(string $key, mixed $default = null, bool $validate = false, bool $cast = true)
     {
         if (array_key_exists($key, $this->settings)) {
-            return $this->getMemoryValue($key, $validate, $cast);
+            return $this->getMemoryValue($key,false,$cast);
         }
-        $appo = $this->getModel($key);
-        if (!is_null($appo)) {
-            //Quando salva in cache fa la validazione ma non il cast
-            $this->set($key, $appo->value, is_null($appo->validation_rules) ? null : $appo->validation_rules, $appo->config_override);
-        } else {
-            //Il valore di default non fa ne validazione ne cast
-            $this->set($key, $default, '', '');
+
+        $redisValue = Redis::hget($this->redis_key,$key);
+        if ($redisValue!==false)
+        {
+            $this->settings[$key]=json_decode($redisValue,true);
+            return $this->getMemoryValue($key,false,$cast);
         }
+        $dbValue=Settings::where('key',$key)->first();
+        if ($dbValue===null)
+        {
+            return $default;
+        }
+
+        try{
+            $this->validate($key,$dbValue->value,$dbValue->validation_rules,$validate,false,true);
+        }catch (\Throwable $exception)
+        {
+            return $default;
+        }
+        Redis::hset($this->redis_key,$key,$dbValue->toJson());
+        $this->settings[$key]=$dbValue->toArray();
+
         //Restituisce il valore dalla memoria effettuando il cast e validazione
-        return $this->getMemoryValue($key, $validate, $cast);
+        return $this->getMemoryValue($key, false, $cast);
     }
 
 
@@ -79,24 +96,23 @@ class SettingsManager
     public function isValid($key)
     {
         try {
-            $this->get($key);
-            return true;
+            $this->get($key,'laravelsettingsnonvalid')!=='laravelsettingsnonvalid';
         } catch (\Exception $e) {
+            return false;
         }
-        Log::error($key . ' key is not valid.');
-        return false;
+
     }
 
     /**
      * @param $key
      * @return mixed|null
      */
-    protected function getMemoryValue($key, $validate = true, $cast = true)
+    protected function getMemoryValue($key, $validate = false, $cast = true)
     {
         if (!array_key_exists($key, $this->settings)) {
             return null;
         }
-        $validation_rule = $this->settings[$key]['validation_rule'];
+        $validation_rule = $this->settings[$key]['validation_rules'];
         $value = $this->validate($key, $this->settings[$key]['value'], $validation_rule, $validate, $cast);
         if (
             !is_array(config('padosoft-settings.encrypted_keys')) || !in_array(
@@ -122,7 +138,7 @@ class SettingsManager
         if (!array_key_exists($key, $this->settings)) {
             return null;
         }
-        return $this->settings[$key]['validation_rule'];
+        return $this->settings[$key]['validation_rules'];
     }
 
     /**
@@ -136,6 +152,8 @@ class SettingsManager
     {
         if (array_key_exists($key, $this->settings)) {
             unset($this->settings[$key]);
+            // Rimuovi la chiave dall'hash
+            Redis::hdel($this->redis_key, $key);
         }
 
         return $this;
@@ -160,14 +178,36 @@ class SettingsManager
         ) {
             $value = Crypt::encrypt($value);
         }
-        if (!array_key_exists($key,$this->settings)){
+        if (array_key_exists($key, $this->settings) && $this->settings[$key]['value'] === $value
+            && $this->settings[$key]['validation_rules'] === $validation_rule) {
+            return $this;
+        }
+        if ($validation_rule===null && array_key_exists($key,$this->settings))
+        {
+            $validation_rule=$this->settings[$key]['validation_rules'];
+        }
+        try{
+            $this->validate($key,$value,$validation_rule,true,false,true);
+        }catch (\Exception $exception)
+        {
+            return $this;
+        }
+
+        if (!array_key_exists($key, $this->settings)) {
             $this->dirties[$key] = $value;
-        }else if ($this->settings[$key]['value'] !== $value) {
+        }else {
             $this->dirties[$key] = $this->settings[$key]['value'];
         }
         $this->settings[$key]['value'] = $value;
         $this->settings[$key]['config_override'] = $config_override;
-        $this->settings[$key]['validation_rule'] = $validation_rule;
+        $this->settings[$key]['validation_rules'] = $validation_rule;
+        try{
+            Redis::hset($this->redis_key,$key,json_encode($this->settings[$key]));
+        }catch (\Throwable $exception)
+        {
+            Log::error('Unable to set value '.$value.' to '.$key.': '.$exception->getMessage());
+        }
+
 
         return $this;
     }
@@ -186,15 +226,17 @@ class SettingsManager
             if ($model === null) {
                 throw new \Exception("Failed to update settings key '" . $key . " on Database. This key does not exist. You must create the key before you can perform an update.");
             }
-            if ($this->getMemoryValidationRule($key) !== null) {
-                $model->validation_rules = $this->getMemoryValidationRule($key);
-            }
-            $model->value = $this->getMemoryValue($key, true, false);
+
+            $model->validation_rules = $valore['validation_rules'];
+            $model->value = $valore['value'];
+
             if (!$model->isDirty()) {
                 continue;
             }
             $model->save();
+            unset($this->dirties[$key]);
         }
+
 
         return $this;
     }
@@ -208,7 +250,7 @@ class SettingsManager
      */
     public function setAndStore($key, $valore, $validation_rule = null, $config_override = '')
     {
-        return $this->set($key, $valore, $validation_rule, $config_override)->store();
+            $this->set($key, $valore, $validation_rule, $config_override)->store();
     }
 
     /**
@@ -222,9 +264,6 @@ class SettingsManager
     public function getModel($key, $disableCache = false)
     {
         $query = Settings::query();
-        if ($disableCache) {
-            $query->disableCache();
-        }
 
         return $query->where('key', $key)->first();
     }
@@ -232,55 +271,32 @@ class SettingsManager
     public function clearCache(): bool
     {
         try {
-            if (file_exists($this->getSettingsFilePath()))
-            {
-                unlink($this->getSettingsFilePath());
-            }
-            Artisan::call("modelCache:clear", ['--model' => 'Padosoft\Laravel\Settings\Settings']);
+            Redis::del($this->redis_key);
             return true;
         } catch (\Throwable $exception) {
-            Log::error('Impossibile svuotare cache dei settings '.$exception->getMessage() );
+            Log::error('Impossibile svuotare cache dei settings ' . $exception->getMessage());
         }
         return false;
     }
-    public function persistToFile(): bool
+
+    protected function loadFromRedis(): bool
     {
 
-        $file = $this->getSettingsFilePath();
-        try {
-            return file_put_contents($file, '<?php' . PHP_EOL . 'return ' . var_export($this->settings, true) . ';');
-        } catch (\Throwable $exception) {
-            Log::error('Impossibile leggere i settings dal file ' . $file);
-        }
-
-        return false;
-    }
-
-    protected function loadFromFile(): bool
-    {
-        $file = $this->getSettingsFilePath();
 
         try {
-            if (!file_exists($file)) {
+            $redis = Redis::hgetall($this->redis_key);
+            if (!is_array($redis) || count($redis)<1) {
                 return false;
             }
 
-            $this->settings = require($file);
-            if (!is_array($this->settings))
-            {
-                $this->settings = [];
-                return false;
-            }
-            if (count(array_filter($this->settings, function ($item) {
-                    return array_key_exists('config_override', $item);
-                })) === count($this->settings)) {
-                return true;
-            }
-            $this->settings = [];
-            return false;
+            $this->settings=array_map(function ($value){
+                return json_decode($value,true);
+            },$redis);
+
+            return true;
         } catch (\Throwable $exception) {
             $this->settings = [];
-            Log::error('Impossibile leggere i settings dal file ' . $file.PHP_EOL.'Exception recevied: '.$exception->getMessage().PHP_EOL.$exception->getTraceAsString());
+            Log::error('Impossibile ricaricare i settings da redis ' . PHP_EOL . 'Exception recevied: ' . $exception->getMessage() . PHP_EOL . $exception->getTraceAsString());
         }
 
         return false;
@@ -294,7 +310,7 @@ class SettingsManager
         if (!hasDbSettingsTable() || !config('padosoft-settings.enabled', false)) {
             return false;
         }
-        if ($this->loadFromFile()) {
+        if ($this->loadFromRedis()) {
             return true;
         }
 
@@ -303,13 +319,18 @@ class SettingsManager
             ->get();
 
         foreach ($settings as $setting) {
-            $key = $setting->key;
-            $value = $setting->value;
-            $validation_rule = is_null($setting->validation_rules) ? null : $setting->validation_rules;
-            $this->set($key, $value, $validation_rule, $setting->config_override);
+
+            try{
+                $this->validate($setting->key, $setting->value, $setting->validation_rules, true, false,true);
+            }catch (\Throwable $exception)
+            {
+                Log::warning('Setting '.$setting->key.' has an invalid value ('.$setting->value.'): '.$exception->getMessage());
+                continue;
+            }
+            $this->settings[$setting->key]=$setting->toArray();
+            Redis::hset($this->redis_key,$setting->key,$setting->toJson());
         }
 
-        $this->persistToFile();
 
         return true;
     }
@@ -331,7 +352,8 @@ class SettingsManager
                     $value = (bool)$setting['value'];
                     $validation_rules = 'boolean';
                 }
-                config([$key => $this->validate($chiave, $setting['value'], $setting['validation_rule'], true, false)??'']);
+
+                config([$key => $setting['value']]);
             }
 
         }
@@ -353,7 +375,7 @@ class SettingsManager
         $setting = Settings::where('key', $key)->first();
         if ($setting === null) {
             //Valida il valore
-            $this->validate($key, $value, $validation_rule,true,true,true);
+            $this->validate($key, $value, $validation_rule, true, true, true);
             //Crea e esce
             Settings::create([
                 'key' => $key,
@@ -370,8 +392,8 @@ class SettingsManager
         if ($validation_rule === null) {
             $validation_rule = is_null($setting->validation_rules) ? null : $setting->validation_rules;
         }
-        $this->validate($key, $value, $validation_rule,true,true,true);
-        $setting->value = $value??'';
+        $this->validate($key, $value, $validation_rule, true, true, true);
+        $setting->value = $value ?? '';
         $setting->descr = $description;
         $setting->validation_rules = $validation_rule;
         $setting->config_override = $config_override;
@@ -737,10 +759,10 @@ class SettingsManager
      * @return bool|int|mixed|string|string[]
      * @throws \Exception
      */
-    public function validate($key, $value, $validation_rules = null, $validate = true, $cast = true,$throw=false)
+    public function validate($key, $value, $validation_rules = null, $validate = true, $cast = true, $throw = false)
     {
         //Se non esiste validazione o se la validazione è disattivata restituisce il valore non validato
-        if ($validation_rules === '' || $validation_rules === null) {
+        if ($validation_rules === '' || $validation_rules === null || ($validate===false && $cast===false)) {
             return $value;
         }
         $type = self::typeOfValueFromValidationRule($validation_rules);
@@ -748,7 +770,7 @@ class SettingsManager
         //try {
         try {
             if ($validate === true) {
-                Validator::make(['value' => $value??''], ['value' => $rule])->validate();
+                Validator::make(['value' => $value ?? ''], ['value' => $rule])->validate();
             }
 
             //Effettua un cast dinamico del valore
@@ -757,16 +779,14 @@ class SettingsManager
             }
             return SettingsManager::cast($value, $type);
         } catch (ValidationException $e) {
-            if($throw)
-            {
+            if ($throw) {
                 throw $e;
             }
             Log::error($key . ' :: ' . $e->getMessage());
 
             return null;
-        } catch (\Exception $ex){
-            if($throw)
-            {
+        } catch (\Exception $ex) {
+            if ($throw) {
                 throw $ex;
             }
             Log::error($key . ' :: ' . $ex->getMessage());
@@ -787,38 +807,28 @@ class SettingsManager
     public function getMixValidationRules($validation_rules)
     {
         //questo è stato aggiunto perchè altrimenti nella validazione i valori vuoti o null passerebbero sempre
-        if (strpos($validation_rules,'nullable')===false && strpos($validation_rules,'sometimes')===false && ($validation_rules??'')!==''
-            && strpos($validation_rules??'','regex:')===false)
-        {
-            $validation_rules='required|'.$validation_rules;
+        if (strpos($validation_rules, 'nullable') === false && strpos($validation_rules, 'sometimes') === false && ($validation_rules ?? '') !== ''
+            && strpos($validation_rules ?? '', 'regex:') === false) {
+            $validation_rules = 'required|' . $validation_rules;
         }
-        if (strpos($validation_rules??'','regex:')===false)
-        {
-            $validation_rules=explode('|',$validation_rules);
-        }else{
-            $validation_rules=[$validation_rules];
+        if (strpos($validation_rules ?? '', 'regex:') === false) {
+            $validation_rules = explode('|', $validation_rules);
+        } else {
+            $validation_rules = [$validation_rules];
         }
 
-        $rules=[];
-        foreach ($validation_rules as $single_rule)
-        {
+        $rules = [];
+        foreach ($validation_rules as $single_rule) {
             //Se flag_cast = false imposta la validazione su stringa
             //$validation_rules = $cast ? $validation_rules : 'string';
             //Genera il tipo di valore raccogliendo dati da config e validation_rules
             $type = self::typeOfValueFromValidationRule($single_rule);
             //Se Validazione disattivata non valida
             $ruleString = self::getRuleString($type, $single_rule);
-            $rules = array_merge($rules,self::getRule($ruleString));
+            $rules = array_merge($rules, self::getRule($ruleString));
         }
 
         return $rules;
     }
 
-    /**
-     * @return string
-     */
-    public function getSettingsFilePath(): string
-    {
-        return storage_path('settings.tpl');
-    }
 }

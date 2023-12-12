@@ -44,92 +44,104 @@ class SettingTest extends TestCase
         $model->value = 'Settings manager';
         $model->save();
         $returnValue = \SettingsManager::overrideConfig();
-        $this->assertEquals('Settings manager',config('app.name'));
+        $this->assertEquals('Settings manager', config('app.name'));
     }
+
+
 
     /** @test */
-    public function settingsManagerCanStoreFile()
-    {
-        @unlink($this->getSettingsFilePath());
-        $returnValue = \SettingsManager::loadOnStartUp();
-        $this->assertTrue(file_exists($this->getSettingsFilePath()));
-    }
-
+    /*
+     * OBSOLETE
+        public function settingsManagerCanStoreFile()
+        {
+            @unlink($this->getSettingsFilePath());
+            $returnValue = \SettingsManager::loadOnStartUp();
+            $this->assertTrue(file_exists($this->getSettingsFilePath()));
+        }
+    */
     /** @test */
-    public function settingsManagerReadFromFile()
-    {
-        $fake_settings=[];
-        $key='settings'.time();
-        $fake_settings[$key]=
-            [
-                'value'=>'fake_value'.time(),
-                'validation_rule'=>'string',
-                'config_override'=>'',
-            ];
-        file_put_contents($this->getSettingsFilePath(), '<?php return '.var_export($fake_settings, true).';');
-        $returnValue = \SettingsManager::loadOnStartUp();
-        $this->assertEquals($fake_settings[$key]['value'],settings($key));
-    }
-
+    /*
+     * OBSOLETE
+        public function settingsManagerReadFromFile()
+        {
+            $fake_settings=[];
+            $key='settings'.time();
+            $fake_settings[$key]=
+                [
+                    'value'=>'fake_value'.time(),
+                    'validation_rule'=>'string',
+                    'config_override'=>'',
+                ];
+            file_put_contents($this->getSettingsFilePath(), '<?php return '.var_export($fake_settings, true).';');
+            $returnValue = \SettingsManager::loadOnStartUp();
+            $this->assertEquals($fake_settings[$key]['value'],settings($key));
+        }
+    */
     /** @test */
-    public function itUpdateFileWhenSettingsIsCreated()
-    {
-        $model = new Settings();
-        $model->key = 'test'.time();
-        $model->value = 'test_value';
+    /*
+     * OBSOLETE
+        public function itUpdateFileWhenSettingsIsCreated()
+        {
+            $model = new Settings();
+            $model->key = 'test'.time();
+            $model->value = 'test_value';
 
-        $model->save();
+            $model->save();
 
-        $this->assertTrue(file_exists($this->getSettingsFilePath()));
-        $settings=require($this->getSettingsFilePath());
-        $this->assertIsArray($settings);
-        $this->assertArrayHasKey($model->key,$settings);
-        $this->assertEquals($settings[$model->key]['value'],$model->value);
+            $this->assertTrue(file_exists($this->getSettingsFilePath()));
+            $settings=require($this->getSettingsFilePath());
+            $this->assertIsArray($settings);
+            $this->assertArrayHasKey($model->key,$settings);
+            $this->assertEquals($settings[$model->key]['value'],$model->value);
 
-    }
-
+        }
+*/
     /** @test */
-    public function itUpdateFileWhenSettingsIsUpdated()
-    {
-        $model = new Settings();
-        $model->key = 'test'.time();
-        $model->value = 'test_value';
+    /*
+     * OBSOLETE
+        public function itUpdateFileWhenSettingsIsUpdated()
+        {
+            $model = new Settings();
+            $model->key = 'test'.time();
+            $model->value = 'test_value';
 
-        $model->save();
+            $model->save();
 
-        $model->value = 'test_value2';
-        $model->save();
+            $model->value = 'test_value2';
+            $model->save();
 
-        $this->assertTrue(file_exists($this->getSettingsFilePath()));
-        $settings=require($this->getSettingsFilePath());
-        $this->assertIsArray($settings);
-        $this->assertArrayHasKey($model->key,$settings);
-        $this->assertEquals('test_value2',$settings[$model->key]['value']);
+            $this->assertTrue(file_exists($this->getSettingsFilePath()));
+            $settings=require($this->getSettingsFilePath());
+            $this->assertIsArray($settings);
+            $this->assertArrayHasKey($model->key,$settings);
+            $this->assertEquals('test_value2',$settings[$model->key]['value']);
 
-    }
-
+        }
+*/
     /** @test */
-    public function itUpdateFileWhenSettingsIsDeleted()
-    {
-        $model = new Settings();
-        $model->key = 'test'.time();
-        $model->value = 'test_value';
+    /*
+     * OBSOLETE
+        public function itUpdateFileWhenSettingsIsDeleted()
+        {
+            $model = new Settings();
+            $model->key = 'test'.time();
+            $model->value = 'test_value';
 
-        $model->save();
-        $this->assertTrue(file_exists($this->getSettingsFilePath()));
-        $settings=require($this->getSettingsFilePath());
-        $this->assertIsArray($settings);
-        $this->assertArrayHasKey($model->key,$settings);
+            $model->save();
+            $this->assertTrue(file_exists($this->getSettingsFilePath()));
+            $settings=require($this->getSettingsFilePath());
+            $this->assertIsArray($settings);
+            $this->assertArrayHasKey($model->key,$settings);
 
-        $model->delete();
+            $model->delete();
 
 
-        $settings=require($this->getSettingsFilePath());
-        $this->assertIsArray($settings);
-        $this->assertArrayNotHasKey($model->key,$settings);
+            $settings=require($this->getSettingsFilePath());
+            $this->assertIsArray($settings);
+            $this->assertArrayNotHasKey($model->key,$settings);
 
-    }
-
+        }
+ */
     /** @test */
     public function canCreateSetting()
     {
@@ -166,11 +178,12 @@ class SettingTest extends TestCase
         $this->assertDatabaseHas('settings', [
             'key' => 'test'
         ]);
-        settings()->set('test','value2');
-        $this->assertNotEquals(settings()->getModel('test',true)->value,'value2');
+        settings()->set('test', 'value2');
+        $this->assertNotEquals(settings()->getModel('test', true)->value, 'value2');
     }
 
-    public static function newdataProvider(){
+    public static function newdataProvider()
+    {
         return [
             'Email in numero' => [
                 'EmailPino',
@@ -247,21 +260,20 @@ class SettingTest extends TestCase
             ],
         ];
     }
+
     /**
      * @dataProvider newdataProvider
      */
-    public function test_newdata($key,$descr,$validation_rule,$value,$valueSupport,$exception){
-
-
-
+    public function test_newdata($key, $descr, $validation_rule, $value, $valueSupport, $exception)
+    {
 
 
         settings()->UpdateOrCreate($key, $descr, $valueSupport, $validation_rule);
         $this->assertDatabaseHas('settings', [
             'key' => $key
         ]);
-        $this->assertSame($valueSupport??'',settings()->getRaw($key)??'' );
-        if($exception){
+        $this->assertSame($valueSupport ?? '', settings()->getRaw($key) ?? '');
+        if ($exception) {
             $this->expectException(ValidationException::class);
             $this->expectExceptionCode(0);
             //$this->expectExceptionMessage(__('validation.'.$validation_rule,['attribute'=>'value']));//"Value: {$value} is not valid.");
@@ -270,56 +282,55 @@ class SettingTest extends TestCase
 
 
         settings()->UpdateOrCreate($key, $descr, $value, $validation_rule);
-        if($exception){
-            $this->assertSame($valueSupport??'',settings()->getRaw($key)??'' );
-        }else{
-            $this->assertSame($value??'',settings()->getRaw($key)??'' );
+        if ($exception) {
+            $this->assertSame($valueSupport ?? '', settings()->getRaw($key) ?? '');
+        } else {
+            $this->assertSame($value ?? '', settings()->getRaw($key) ?? '');
         }
     }
 
-    public function testSetAndStoreWithValidation(){
+    public function testSetAndStoreWithValidation()
+    {
         $newSetting = new SettingsManager();
-        $newSetting->UpdateOrCreate('prova.1','Unit Test','ciao','string');
-        $this->assertDatabaseHas('settings',['key'=>'prova.1','value'=>'ciao','validation_rules'=>'string']);
-        $newSetting->setAndStore('prova.1','bye','string');
-        $this->assertDatabaseHas('settings',['key'=>'prova.1','value'=>'bye','validation_rules'=>'string']);
+        $newSetting->UpdateOrCreate('prova.1', 'Unit Test', 'ciao', 'string');
+        $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => 'ciao', 'validation_rules' => 'string']);
+        $newSetting->setAndStore('prova.1', 'bye', 'string');
+        $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => 'bye', 'validation_rules' => 'string']);
 
-        $newSetting->setAndStore('prova.1','goodbye');
-        $this->assertDatabaseHas('settings',['key'=>'prova.1','value'=>'goodbye','validation_rules'=>'string']);
+        $newSetting->setAndStore('prova.1', 'goodbye');
+        $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => 'goodbye', 'validation_rules' => 'string']);
 
-        $newSetting->setAndStore('prova.1','goodbye non validato','');
-        $this->assertDatabaseHas('settings',['key'=>'prova.1','value'=>'goodbye non validato','validation_rules'=>'']);
+        $newSetting->setAndStore('prova.1', 'goodbye non validato', '');
+        $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => 'goodbye non validato', 'validation_rules' => '']);
 
-        $newSetting->setAndStore('prova.1','5','');
-        $this->assertDatabaseHas('settings',['key'=>'prova.1','value'=>'5','validation_rules'=>'']);
+        $newSetting->setAndStore('prova.1', '5', '');
+        $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => '5', 'validation_rules' => '']);
 
-        $newSetting->setAndStore('prova.1','5','numeric');
-        $this->assertDatabaseHas('settings',['key'=>'prova.1','value'=>'5','validation_rules'=>'numeric']);
+        $newSetting->setAndStore('prova.1', '5', 'integer');
+        $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => '5', 'validation_rules' => 'integer']);
 
-        try {
-            $newSetting->setAndStore('prova.1','ciao','numeric');
-        }catch(\Exception $e){
-            $this->assertDatabaseHas('settings',['key'=>'prova.1','value'=>'5','validation_rules'=>'numeric']);
-        }
+        $newSetting->setAndStore('prova.1', 'ciao', 'integer');
+        $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => '5', 'validation_rules' => 'integer']);
 
-        $newSetting->setAndStore('prova.1','7','numeric');
-        $this->assertDatabaseHas('settings',['key'=>'prova.1','value'=>'7','validation_rules'=>'numeric']);
 
-        $newSetting->setAndStore('prova.1','test@test.com','email');
-        $this->assertDatabaseHas('settings',['key'=>'prova.1','value'=>'test@test.com','validation_rules'=>'email']);
+        $newSetting->setAndStore('prova.1', '7', 'integer');
+        $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => '7', 'validation_rules' => 'integer']);
 
-        $newSetting->setAndStore('prova.1','test;test@test.com','regex:/'.Settings::PATTERN_EMAIL_ALIAS.'/');
-        $this->assertDatabaseHas('settings',['key'=>'prova.1','value'=>'test;test@test.com','validation_rules'=>'regex:/'.Settings::PATTERN_EMAIL_ALIAS.'/']);
+        $newSetting->setAndStore('prova.1', 'test@test.com', 'email');
+        $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => 'test@test.com', 'validation_rules' => 'email']);
+
+        $newSetting->setAndStore('prova.1', 'test;test@test.com', 'regex:/' . Settings::PATTERN_EMAIL_ALIAS . '/');
+        $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => 'test;test@test.com', 'validation_rules' => 'regex:/' . Settings::PATTERN_EMAIL_ALIAS . '/']);
 
         try {
-            $newSetting->setAndStore('prova.1','test@test.com');
-        }catch(\Exception $e){
-            $this->assertDatabaseHas('settings',['key'=>'prova.1','value'=>'test;test@test.com','validation_rules'=>'regex:/'.Settings::PATTERN_EMAIL_ALIAS.'/']);
+            $newSetting->setAndStore('prova.1', 'test@test.com');
+        } catch (\Exception $e) {
+            $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => 'test;test@test.com', 'validation_rules' => 'regex:/' . Settings::PATTERN_EMAIL_ALIAS . '/']);
         }
         try {
-            $newSetting->setAndStore('prova.2','test@test.com');
-        }catch(\Exception $e){
-            $this->assertDatabaseMissing('settings',['key'=>'prova.2']);
+            $newSetting->setAndStore('prova.2', 'test@test.com');
+        } catch (\Exception $e) {
+            $this->assertDatabaseMissing('settings', ['key' => 'prova.2']);
         }
 
     }
@@ -327,23 +338,23 @@ class SettingTest extends TestCase
     /**
      * @dataProvider newdataProvider
      */
-    public function test_canSetNewSettings($key,$descr,$validation_rule,$value,$valueSupport,$exception){
+    public function test_canSetNewSettings($key, $descr, $validation_rule, $value, $valueSupport, $exception)
+    {
         $settingManager = settings();
         try {
-            $settingManager->UpdateOrCreate($key,$descr,$valueSupport,$validation_rule);
+            $settingManager->UpdateOrCreate($key, $descr, $valueSupport, $validation_rule);
             $settingManager->set($key, $value, $validation_rule);
-        }catch(\Exception $e){
+        } catch (\Exception $e) {
             $this->expectExceptionCode(0);
             $this->expectExceptionMessage("Value: {$value} is not valid.");
             //throw new \Exception($e->getMessage(),$e->getCode());
         }
-        if($exception){
-            $this->assertFalse(settings($key)===$value);
-        }else{
-            $this->assertSame(settings($key)??'',$value??'');
+        if ($exception) {
+            $this->assertFalse(settings($key) === $value);
+        } else {
+            $this->assertSame(settings($key) ?? '', $value ?? '');
         }
     }
-
 
 
     /** @test */
