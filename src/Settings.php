@@ -2,7 +2,6 @@
 
 namespace Padosoft\Laravel\Settings;
 
-use GeneaLabs\LaravelModelCaching\Traits\Cachable;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Crypt;

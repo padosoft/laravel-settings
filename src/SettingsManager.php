@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Padosoft\Laravel\Settings\Exceptions\DecryptException as SettingsDecryptException;
-use phpDocumentor\Reflection\DocBlock\Tags\Throws;
 
 class SettingsManager
 {
@@ -39,7 +38,7 @@ class SettingsManager
      *
      * @return mixed
      */
-    public function get(string $key, mixed $default = null, bool $validate = false, bool $cast = true)
+    public function get(string $key, $default = null, bool $validate = false, bool $cast = true)
     {
         if (array_key_exists($key, $this->settings)) {
             return $this->getMemoryValue($key,false,$cast);
@@ -101,6 +100,7 @@ class SettingsManager
             return false;
         }
 
+        return true;
     }
 
     /**
@@ -250,7 +250,7 @@ class SettingsManager
      */
     public function setAndStore($key, $valore, $validation_rule = null, $config_override = '')
     {
-            $this->set($key, $valore, $validation_rule, $config_override)->store();
+        return $this->set($key, $valore, $validation_rule, $config_override)->store();
     }
 
     /**
