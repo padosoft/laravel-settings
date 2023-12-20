@@ -30,6 +30,8 @@ class SettingsManager
     public function __construct()
     {
         $this->dirties=[];
+        $connection=(new Settings)->getConnection();
+        $this->redis_key.=$connection->getDatabaseName();
         //settings()->loadOnStartUp();
         //settings()->overrideConfig();
     }
