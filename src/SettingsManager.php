@@ -24,31 +24,30 @@ class SettingsManager
     protected array $dirties = [];
 
     //reload settings from redis/database after this time
-    protected int $memory_expires_seconds=600;
-    protected int $last_retrived_settings=0;
+    protected int $memory_expires_seconds = 600;
+    protected int $last_retrived_settings = 0;
 
     public function __construct()
     {
-        $this->dirties=[];
-        $connection=(new Settings)->getConnection();
-        $this->redis_key.=$connection->getDatabaseName();
+        $this->dirties = [];
+        $connection = (new Settings)->getConnection();
+        $this->redis_key .= $connection->getDatabaseName();
         //settings()->loadOnStartUp();
         //settings()->overrideConfig();
     }
 
     public function setMemoryExpires(int $seconds)
     {
-        $this->memory_expires_seconds=$seconds;
+        $this->memory_expires_seconds = $seconds;
     }
 
     protected function checkExpire()
     {
-        if ($this->last_retrived_settings>0 && ($this->last_retrived_settings+$this->memory_expires_seconds)>time())
-        {
+        if ($this->last_retrived_settings > 0 && ($this->last_retrived_settings + $this->memory_expires_seconds) > time()) {
             return;
         }
 
-        $this->settings=[];
+        $this->settings = [];
         $this->loadOnStartUp();
     }
 
@@ -64,29 +63,26 @@ class SettingsManager
     {
         $this->checkExpire();
         if (array_key_exists($key, $this->settings)) {
-            return $this->getMemoryValue($key,false,$cast);
+            return $this->getMemoryValue($key, false, $cast);
         }
 
-        $redisValue = Redis::hget($this->redis_key,$key);
-        if ($redisValue!==false && $redisValue!==null  && $redisValue!=='')
-        {
-            $this->settings[$key]=json_decode($redisValue,true);
-            return $this->getMemoryValue($key,false,$cast);
+        $redisValue = Redis::hget($this->redis_key, $key);
+        if ($redisValue !== false && $redisValue !== null && $redisValue !== '') {
+            $this->settings[$key] = json_decode($redisValue, true);
+            return $this->getMemoryValue($key, false, $cast);
         }
-        $dbValue=Settings::where('key',$key)->first();
-        if ($dbValue===null)
-        {
+        $dbValue = Settings::where('key', $key)->first();
+        if ($dbValue === null) {
             return $default;
         }
 
-        try{
-            $this->validate($key,$dbValue->value,$dbValue->validation_rules,$validate,false,true);
-        }catch (\Throwable $exception)
-        {
+        try {
+            $this->validate($key, $dbValue->value, $dbValue->validation_rules, $validate, false, true);
+        } catch (\Throwable $exception) {
             return $default;
         }
-        Redis::hset($this->redis_key,$key,$dbValue->toJson());
-        $this->settings[$key]=$dbValue->toArray();
+        Redis::hset($this->redis_key, $key, $dbValue->toJson());
+        $this->settings[$key] = $dbValue->toArray();
 
         //Restituisce il valore dalla memoria effettuando il cast e validazione
         return $this->getMemoryValue($key, false, $cast);
@@ -118,7 +114,7 @@ class SettingsManager
     public function isValid($key)
     {
         try {
-            $this->get($key,'laravelsettingsnonvalid')!=='laravelsettingsnonvalid';
+            $this->get($key, 'laravelsettingsnonvalid') !== 'laravelsettingsnonvalid';
         } catch (\Exception $e) {
             return false;
         }
@@ -205,30 +201,27 @@ class SettingsManager
             && $this->settings[$key]['validation_rules'] === $validation_rule) {
             return $this;
         }
-        if ($validation_rule===null && array_key_exists($key,$this->settings))
-        {
-            $validation_rule=$this->settings[$key]['validation_rules'];
+        if ($validation_rule === null && array_key_exists($key, $this->settings)) {
+            $validation_rule = $this->settings[$key]['validation_rules'];
         }
-        try{
-            $this->validate($key,$value,$validation_rule,true,false,true);
-        }catch (\Exception $exception)
-        {
+        try {
+            $this->validate($key, $value, $validation_rule, true, false, true);
+        } catch (\Exception $exception) {
             return $this;
         }
 
         if (!array_key_exists($key, $this->settings)) {
             $this->dirties[$key] = $value;
-        }else {
+        } else {
             $this->dirties[$key] = $this->settings[$key]['value'];
         }
         $this->settings[$key]['value'] = $value;
         $this->settings[$key]['config_override'] = $config_override;
         $this->settings[$key]['validation_rules'] = $validation_rule;
-        try{
-            Redis::hset($this->redis_key,$key,json_encode($this->settings[$key]));
-        }catch (\Throwable $exception)
-        {
-            Log::error('Unable to set value '.$value.' to '.$key.': '.$exception->getMessage());
+        try {
+            Redis::hset($this->redis_key, $key, json_encode($this->settings[$key]));
+        } catch (\Throwable $exception) {
+            Log::error('Unable to set value ' . $value . ' to ' . $key . ': ' . $exception->getMessage());
         }
 
 
@@ -308,14 +301,21 @@ class SettingsManager
 
         try {
             $redis = Redis::hgetall($this->redis_key);
-            if (!is_array($redis) || count($redis)<1) {
+            if (!is_array($redis) || count($redis) < 1) {
                 return false;
             }
 
-            $this->settings=array_map(function ($value){
-                return json_decode($value,true);
-            },$redis);
-            $this->last_retrived_settings=time();
+            $this->settings = array_map(function ($value) {
+                return json_decode($value, true);
+            }, $redis);
+            //verifico che non ci siano dati corrotti ripresi da redis (cambio di serialization/compression)
+            if (count(array_filter($this->settings, function ($elem) {
+                    return $elem === null;
+                })) > 0) {
+                $this->settings = [];
+                return false;
+            }
+            $this->last_retrived_settings = time();
             return true;
         } catch (\Throwable $exception) {
             $this->settings = [];
@@ -343,17 +343,16 @@ class SettingsManager
 
         foreach ($settings as $setting) {
 
-            try{
-                $this->validate($setting->key, $setting->value, $setting->validation_rules, true, false,true);
-            }catch (\Throwable $exception)
-            {
-                Log::warning('Setting '.$setting->key.' has an invalid value ('.$setting->value.'): '.$exception->getMessage());
+            try {
+                $this->validate($setting->key, $setting->value, $setting->validation_rules, true, false, true);
+            } catch (\Throwable $exception) {
+                Log::warning('Setting ' . $setting->key . ' has an invalid value (' . $setting->value . '): ' . $exception->getMessage());
                 continue;
             }
-            $this->settings[$setting->key]=$setting->toArray();
-            Redis::hset($this->redis_key,$setting->key,$setting->toJson());
+            $this->settings[$setting->key] = $setting->toArray();
+            Redis::hset($this->redis_key, $setting->key, $setting->toJson());
         }
-        $this->last_retrived_settings=time();
+        $this->last_retrived_settings = time();
 
         return true;
     }
@@ -785,7 +784,7 @@ class SettingsManager
     public function validate($key, $value, $validation_rules = null, $validate = true, $cast = true, $throw = false)
     {
         //Se non esiste validazione o se la validazione è disattivata restituisce il valore non validato
-        if ($validation_rules === '' || $validation_rules === null || ($validate===false && $cast===false)) {
+        if ($validation_rules === '' || $validation_rules === null || ($validate === false && $cast === false)) {
             return $value;
         }
         $type = self::typeOfValueFromValidationRule($validation_rules);
