@@ -7,6 +7,8 @@ use Illuminate\Validation\ValidationException;
 use Padosoft\Laravel\Settings\Exceptions\DecryptException;
 use Padosoft\Laravel\Settings\Settings;
 use Padosoft\Laravel\Settings\SettingsManager;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
 
 class SettingTest extends TestCase
 {
@@ -17,14 +19,16 @@ class SettingTest extends TestCase
 
     }
 
-    /** @test */
+
+    #[Test]
     public function hasSettings()
     {
         \Illuminate\Support\Facades\Cache::forget('hasDbSettingsTable');
         $this->assertTrue(hasDbSettingsTable());
     }
 
-    /** @test */
+
+    #[Test]
     public function settingsManagerCanLoadOnStartup()
     {
         $returnValue = \SettingsManager::loadOnStartUp();
@@ -34,7 +38,8 @@ class SettingTest extends TestCase
         $this->assertTrue($returnValue);
     }
 
-    /** @test */
+
+    #[Test]
     public function itCanOverrideConfig()
     {
         $returnValue = \SettingsManager::loadOnStartUp();
@@ -48,100 +53,8 @@ class SettingTest extends TestCase
         $this->assertEquals('Settings manager', config('app.name'));
     }
 
-    /** @test */
-    /*
-     * OBSOLETE
-        public function settingsManagerCanStoreFile()
-        {
-            @unlink($this->getSettingsFilePath());
-            $returnValue = \SettingsManager::loadOnStartUp();
-            $this->assertTrue(file_exists($this->getSettingsFilePath()));
-        }
-    */
-    /** @test */
-    /*
-     * OBSOLETE
-        public function settingsManagerReadFromFile()
-        {
-            $fake_settings=[];
-            $key='settings'.time();
-            $fake_settings[$key]=
-                [
-                    'value'=>'fake_value'.time(),
-                    'validation_rule'=>'string',
-                    'config_override'=>'',
-                ];
-            file_put_contents($this->getSettingsFilePath(), '<?php return '.var_export($fake_settings, true).';');
-            $returnValue = \SettingsManager::loadOnStartUp();
-            $this->assertEquals($fake_settings[$key]['value'],settings($key));
-        }
-    */
-    /** @test */
-    /*
-     * OBSOLETE
-        public function itUpdateFileWhenSettingsIsCreated()
-        {
-            $model = new Settings();
-            $model->key = 'test'.time();
-            $model->value = 'test_value';
 
-            $model->save();
-
-            $this->assertTrue(file_exists($this->getSettingsFilePath()));
-            $settings=require($this->getSettingsFilePath());
-            $this->assertIsArray($settings);
-            $this->assertArrayHasKey($model->key,$settings);
-            $this->assertEquals($settings[$model->key]['value'],$model->value);
-
-        }
-*/
-    /** @test */
-    /*
-     * OBSOLETE
-        public function itUpdateFileWhenSettingsIsUpdated()
-        {
-            $model = new Settings();
-            $model->key = 'test'.time();
-            $model->value = 'test_value';
-
-            $model->save();
-
-            $model->value = 'test_value2';
-            $model->save();
-
-            $this->assertTrue(file_exists($this->getSettingsFilePath()));
-            $settings=require($this->getSettingsFilePath());
-            $this->assertIsArray($settings);
-            $this->assertArrayHasKey($model->key,$settings);
-            $this->assertEquals('test_value2',$settings[$model->key]['value']);
-
-        }
-*/
-    /** @test */
-    /*
-     * OBSOLETE
-        public function itUpdateFileWhenSettingsIsDeleted()
-        {
-            $model = new Settings();
-            $model->key = 'test'.time();
-            $model->value = 'test_value';
-
-            $model->save();
-            $this->assertTrue(file_exists($this->getSettingsFilePath()));
-            $settings=require($this->getSettingsFilePath());
-            $this->assertIsArray($settings);
-            $this->assertArrayHasKey($model->key,$settings);
-
-            $model->delete();
-
-
-            $settings=require($this->getSettingsFilePath());
-            $this->assertIsArray($settings);
-            $this->assertArrayNotHasKey($model->key,$settings);
-
-        }
- */
-    /** @test */
+    #[Test]
     public function canCreateSetting()
     {
         /*
@@ -160,7 +73,8 @@ class SettingTest extends TestCase
         ]);
     }
 
-    /** @test */
+
+    #[Test]
     public function settingIsCached()
     {
         /*
@@ -181,7 +95,8 @@ class SettingTest extends TestCase
         $this->assertNotEquals(settings()->getModel('test', true)->value, 'value2');
     }
 
-    public static function newdataProvider()
+
+    public static function newdataProvider(): array
     {
         return [
             'Email in numero' => [
@@ -260,9 +175,9 @@ class SettingTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider newdataProvider
-     */
+
+    #[Test]
+    #[DataProvider('newdataProvider')]
     public function test_newdata($key, $descr, $validation_rule, $value, $valueSupport, $exception)
     {
 
@@ -288,6 +203,8 @@ class SettingTest extends TestCase
         }
     }
 
+
+    #[Test]
     public function testSetAndStoreWithValidation()
     {
         $newSetting = new SettingsManager();
@@ -334,9 +251,9 @@ class SettingTest extends TestCase
 
     }
 
-    /**
-     * @dataProvider newdataProvider
-     */
+
+    #[Test]
+    #[DataProvider('newdataProvider')]
     public function test_canSetNewSettings($key, $descr, $validation_rule, $value, $valueSupport, $exception)
     {
         $settingManager = settings();
@@ -355,7 +272,8 @@ class SettingTest extends TestCase
         }
     }
 
-    /** @test */
+
+    #[Test]
     public function itReloadSettingsAfterExpire()
     {
         $settingManager = settings();
@@ -379,7 +297,8 @@ class SettingTest extends TestCase
         $this->assertEquals('bye2',$settingManager->get('prova.1'));
     }
 
-    /** @test */
+
+    #[Test]
     public function canCreateAndRetriveEncryptedSetting()
     {
         /*
@@ -404,7 +323,8 @@ class SettingTest extends TestCase
         $this->assertEquals('test_value', Settings::where('key', 'test')->first()->value);
     }
 
-    /** @test */
+
+    #[Test]
     public function throwInExceptionIfCannotDecryptValye()
     {
         /*
@@ -426,14 +346,6 @@ class SettingTest extends TestCase
         $this->expectException(DecryptException::class);
         Settings::where('key', 'test')->first()->value;
         //$this->assertEquals('test_value',);
-    }
-
-    /**
-     * @return string
-     */
-    protected function getSettingsFilePath(): string
-    {
-        return storage_path('settings.tpl');
     }
 
 }
