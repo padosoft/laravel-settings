@@ -68,7 +68,10 @@ class SettingsManager
 
         $redisValue = Redis::hget($this->redis_key, $key);
         if ($redisValue !== false && $redisValue !== null && $redisValue !== '') {
-            $this->settings[$key] = json_decode($redisValue, true);
+            $redisValue = json_decode($redisValue, true);
+        }
+        if (is_array($redisValue) && count($redisValue)>0) {
+            $this->settings[$key] = $redisValue;
             return $this->getMemoryValue($key, false, $cast);
         }
         $dbValue = Settings::where('key', $key)->first();

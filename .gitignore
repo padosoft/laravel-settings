@@ -400,3 +400,4 @@ _Pvt_Extensions
 
 # FAKE - F# Make
 .fake/
+/.phpunit.cache/test-results
