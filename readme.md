@@ -97,7 +97,7 @@ class PopulateSettings extends Migration
             DB::table('settings')->insert([
                 //LOGIN
                 ['key'=>'login.remember_me', 'value'=>'1','descr'=>'Enable/Disable remeber me feature','config_override'=>'padosoft-users.login.remember-me','validation_rules'=>'boolean','editable'=>1,'load_on_startup'=>0],
-                ['key'=>'login.login_reset_token_lifetime', 'value'=>'30','descr'=>'Number of minutes reset token lasts','config_override'=>'auth.expire','validation_rules'=>'numeric','editable'=>1,,'load_on_startup'=>0],                
+                ['key'=>'login.login_reset_token_lifetime', 'value'=>'30','descr'=>'Number of minutes reset token lasts','config_override'=>'auth.expire','validation_rules'=>'numeric','editable'=>1,'load_on_startup'=>0],                
             ]);
         }
 
