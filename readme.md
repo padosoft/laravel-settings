@@ -145,8 +145,17 @@ Please take care of populate config_override column with config key you want you
 
 ```
 
-
-
+## Events Listening
+Every time a model is created,updated or deleted an event will be dispatched.
+You can listen these events with a simple Listener in Laravel
+```php
+    public function subscribe(Dispatcher $events): void
+    {
+        $events->listen(\Padosoft\Laravel\Settings\Events\SettingCreated::class, [SettingsEventSubscriber::class, 'handleSettingCreated']);
+        $events->listen(\Padosoft\Laravel\Settings\Events\SettingUpdated::class, [SettingsEventSubscriber::class, 'handleSettingUpdated']);
+        $events->listen(\Padosoft\Laravel\Settings\Events\SettingDeleted::class, [SettingsEventSubscriber::class, 'handleSettingDeleted']);
+    }
+```
 
 ## Contact
 

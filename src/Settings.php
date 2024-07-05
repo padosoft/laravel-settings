@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Padosoft\Laravel\Settings\Events\SettingCreated;
+use Padosoft\Laravel\Settings\Events\SettingDeleted;
+use Padosoft\Laravel\Settings\Events\SettingUpdated;
 use Padosoft\Laravel\Settings\Exceptions\DecryptException as SettingsDecryptException;
 
 class Settings extends Model
@@ -30,13 +33,15 @@ class Settings extends Model
     {
         static::created(function ($model) {
             settings()->set($model->key, $model->value, $model->validation_rules, $model->config_override);
-
+            SettingCreated::dispatch($model);
         });
         static::updated(function ($model) {
             settings()->set($model->key, $model->value, $model->validation_rules, $model->config_override);
+            SettingUpdated::dispatch($model);
         });
         static::deleted(function ($model) {
             settings()->remove($model->key);
+            SettingDeleted::dispatch($model);
         });
 
     }

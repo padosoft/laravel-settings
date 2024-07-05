@@ -3,7 +3,11 @@
 namespace Padosoft\Laravel\Settings\Test;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
+use Padosoft\Laravel\Settings\Events\SettingCreated;
+use Padosoft\Laravel\Settings\Events\SettingDeleted;
+use Padosoft\Laravel\Settings\Events\SettingUpdated;
 use Padosoft\Laravel\Settings\Exceptions\DecryptException;
 use Padosoft\Laravel\Settings\Settings;
 use Padosoft\Laravel\Settings\SettingsManager;
@@ -346,6 +350,34 @@ class SettingTest extends TestCase
         $this->expectException(DecryptException::class);
         Settings::where('key', 'test')->first()->value;
         //$this->assertEquals('test_value',);
+    }
+
+    #[Test]
+    public function assertIsDispatchedEvents()
+    {
+        Event::fake([
+            SettingCreated::class,
+            SettingUpdated::class,
+            SettingDeleted::class,
+        ]);
+        $model = new Settings();
+        $model->key = 'test_event_created'.time();
+        $model->value = 'test_value';
+        $model->save();
+        $this->assertDatabaseHas('settings',['id'=>$model->id]);
+        Event::assertDispatched(function (SettingCreated $settingCreated) use($model) {
+            return $model->id==$settingCreated->setting->id;
+        });
+        $model->value = 'test_value_modified';
+        $model->save();
+        Event::assertDispatched(function (SettingUpdated $settingUpdated) use($model) {
+            return $model->value==$settingUpdated->setting->value;
+        });
+        $model->delete();
+        $this->assertDatabaseMissing('settings',['id'=>$model->id]);
+        Event::assertDispatched(function (SettingDeleted $settingDeleted) use($model) {
+            return $model->id==$settingDeleted->setting->id;
+        });
     }
 
 }
