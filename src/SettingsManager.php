@@ -66,7 +66,7 @@ class SettingsManager
             return $this->getMemoryValue($key, false, $cast);
         }
 
-        $redisValue = Redis::hget($this->redis_key, $key);
+        $redisValue = SettingsRedisRepository::hget($this->redis_key, $key);
         if ($redisValue !== false && $redisValue !== null && $redisValue !== '') {
             $redisValue = json_decode($redisValue, true);
         }
@@ -84,7 +84,7 @@ class SettingsManager
         } catch (\Throwable $exception) {
             return $default;
         }
-        Redis::hset($this->redis_key, $key, $dbValue->toJson());
+        SettingsRedisRepository::hset($this->redis_key, $key, $dbValue->toJson());
         $this->settings[$key] = $dbValue->toArray();
 
         //Restituisce il valore dalla memoria effettuando il cast e validazione
@@ -175,7 +175,7 @@ class SettingsManager
         if (array_key_exists($key, $this->settings)) {
             unset($this->settings[$key]);
             // Rimuovi la chiave dall'hash
-            Redis::hdel($this->redis_key, $key);
+            SettingsRedisRepository::hdel($this->redis_key, $key);
         }
 
         return $this;
@@ -222,7 +222,7 @@ class SettingsManager
         $this->settings[$key]['config_override'] = $config_override;
         $this->settings[$key]['validation_rules'] = $validation_rule;
         try {
-            Redis::hset($this->redis_key, $key, json_encode($this->settings[$key]));
+            SettingsRedisRepository::hset($this->redis_key, $key, json_encode($this->settings[$key]));
         } catch (\Throwable $exception) {
             Log::error('Unable to set value ' . $value . ' to ' . $key . ': ' . $exception->getMessage());
         }
@@ -290,7 +290,7 @@ class SettingsManager
     public function clearCache(): bool
     {
         try {
-            Redis::del($this->redis_key);
+            SettingsRedisRepository::del($this->redis_key);
             return true;
         } catch (\Throwable $exception) {
             Log::error('Impossibile svuotare cache dei settings ' . $exception->getMessage());
@@ -303,7 +303,7 @@ class SettingsManager
 
 
         try {
-            $redis = Redis::hgetall($this->redis_key);
+            $redis = SettingsRedisRepository::hgetall($this->redis_key);
             if (!is_array($redis) || count($redis) < 1) {
                 return false;
             }
@@ -353,7 +353,7 @@ class SettingsManager
                 continue;
             }
             $this->settings[$setting->key] = $setting->toArray();
-            Redis::hset($this->redis_key, $setting->key, $setting->toJson());
+            SettingsRedisRepository::hset($this->redis_key, $setting->key, $setting->toJson());
         }
         $this->last_retrived_settings = time();
 

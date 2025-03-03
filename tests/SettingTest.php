@@ -4,6 +4,7 @@ namespace Padosoft\Laravel\Settings\Test;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Validation\ValidationException;
 use Padosoft\Laravel\Settings\Events\SettingCreated;
 use Padosoft\Laravel\Settings\Events\SettingDeleted;
@@ -20,7 +21,6 @@ class SettingTest extends TestCase
     public function setUp(): void
     {
         parent::setUp();
-
     }
 
 
@@ -184,8 +184,6 @@ class SettingTest extends TestCase
     #[DataProvider('newdataProvider')]
     public function test_newdata($key, $descr, $validation_rule, $value, $valueSupport, $exception)
     {
-
-
         settings()->UpdateOrCreate($key, $descr, $valueSupport, $validation_rule);
         $this->assertDatabaseHas('settings', [
             'key' => $key
@@ -252,7 +250,6 @@ class SettingTest extends TestCase
         } catch (\Exception $e) {
             $this->assertDatabaseMissing('settings', ['key' => 'prova.2']);
         }
-
     }
 
 
@@ -281,24 +278,24 @@ class SettingTest extends TestCase
     public function itReloadSettingsAfterExpire()
     {
         $settingManager = settings();
-        $settingManager->UpdateOrCreate('prova.1', 'Unit Test', 'ciao', 'string','',1);
+        $settingManager->UpdateOrCreate('prova.1', 'Unit Test', 'ciao', 'string', '', 1);
         $settingManager->loadOnStartUp();
         $settingManager->setAndStore('prova.1', 'bye', 'string');
         $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => 'bye', 'validation_rules' => 'string']);
-        $this->assertEquals('bye',$settingManager->get('prova.1'));
-        DB::connection('sqlite')->table('settings')->where('key','prova.1')->update(['value'=>'bye2']);
+        $this->assertEquals('bye', $settingManager->get('prova.1'));
+        DB::connection('sqlite')->table('settings')->where('key', 'prova.1')->update(['value' => 'bye2']);
         $settingManager->clearCache();
         $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => 'bye2', 'validation_rules' => 'string']);
-        $this->assertEquals('bye',$settingManager->get('prova.1'));
+        $this->assertEquals('bye', $settingManager->get('prova.1'));
         $settingManager->setMemoryExpires(5);
         $settingManager->clearCache();
         sleep(5);
-        $this->assertEquals('bye2',$settingManager->get('prova.1'));
+        $this->assertEquals('bye2', $settingManager->get('prova.1'));
         $settingManager->setMemoryExpires(600);
-        DB::connection('sqlite')->table('settings')->where('key','prova.1')->update(['value'=>'bye3']);
+        DB::connection('sqlite')->table('settings')->where('key', 'prova.1')->update(['value' => 'bye3']);
         $this->assertDatabaseHas('settings', ['key' => 'prova.1', 'value' => 'bye3', 'validation_rules' => 'string']);
         $settingManager->clearCache();
-        $this->assertEquals('bye2',$settingManager->get('prova.1'));
+        $this->assertEquals('bye2', $settingManager->get('prova.1'));
     }
 
 
@@ -356,28 +353,103 @@ class SettingTest extends TestCase
     public function assertIsDispatchedEvents()
     {
         Event::fake([
-            SettingCreated::class,
-            SettingUpdated::class,
-            SettingDeleted::class,
-        ]);
+                        SettingCreated::class,
+                        SettingUpdated::class,
+                        SettingDeleted::class,
+                    ]);
         $model = new Settings();
-        $model->key = 'test_event_created'.time();
+        $model->key = 'test_event_created' . time();
         $model->value = 'test_value';
         $model->save();
-        $this->assertDatabaseHas('settings',['id'=>$model->id]);
-        Event::assertDispatched(function (SettingCreated $settingCreated) use($model) {
-            return $model->id==$settingCreated->setting->id;
+        $this->assertDatabaseHas('settings', ['id' => $model->id]);
+        Event::assertDispatched(function (SettingCreated $settingCreated) use ($model) {
+            return $model->id == $settingCreated->setting->id;
         });
         $model->value = 'test_value_modified';
         $model->save();
-        Event::assertDispatched(function (SettingUpdated $settingUpdated) use($model) {
-            return $model->value==$settingUpdated->setting->value;
+        Event::assertDispatched(function (SettingUpdated $settingUpdated) use ($model) {
+            return $model->value == $settingUpdated->setting->value;
         });
         $model->delete();
-        $this->assertDatabaseMissing('settings',['id'=>$model->id]);
-        Event::assertDispatched(function (SettingDeleted $settingDeleted) use($model) {
-            return $model->id==$settingDeleted->setting->id;
+        $this->assertDatabaseMissing('settings', ['id' => $model->id]);
+        Event::assertDispatched(function (SettingDeleted $settingDeleted) use ($model) {
+            return $model->id == $settingDeleted->setting->id;
         });
+    }
+
+    #[Test]
+    public function assertCanGetValueFromLocalConnection()
+    {
+        $model = new Settings();
+        $model->key = 'testValueFromLocal';
+        $model->value = 'test_value_local';
+        $model->validation_rules = 'string';
+        $connection = (new Settings)->getConnection()->getDatabaseName();
+        Redis::connection('local')->hset('laravel_pds_settings' . $connection, 'testValueFromLocal', $model->toJson());
+        Redis::hset('laravel_pds_settings' . $connection, 'testValueFromLocal', 'culo');
+        config()->set('padosoft-settings.local_connection', 'local');
+        $localValue = settings()->get('testValueFromLocal');
+        $this->assertEquals('test_value_local', $localValue);
+        config(['padosoft-settings.local_connection' => null]);
+    }
+
+    #[Test]
+    public function assertItSetValueOnRemoteAndLocalConnection()
+    {
+        config()->set('padosoft-settings.local_connection', 'local');
+        $model = new Settings();
+        $model->key = 'testSetValueFromLocal';
+        $model->value = 'test_value_local';
+        $model->validation_rules = 'string';
+        $model->save();
+        $connection = (new Settings)->getConnection()->getDatabaseName();
+        $localValue = json_decode(Redis::connection('local')->hget('laravel_pds_settings' . $connection, 'testSetValueFromLocal'), true);
+        $remoteValue = json_decode(Redis::connection('default')->hget('laravel_pds_settings' . $connection, 'testSetValueFromLocal'), true);
+
+        $this->assertEquals('test_value_local', $localValue['value']);
+        $this->assertEquals('test_value_local', $remoteValue['value']);
+        config(['padosoft-settings.local_connection' => null]);
+    }
+
+    #[Test]
+    public function assertItSetValueOnLocalIfMissing()
+    {
+
+        $model = new Settings();
+        $model->key = 'testSetValueToLocal';
+        $model->value = 'test_value_local';
+        $model->validation_rules = 'string';
+        $model->save();
+        config()->set('padosoft-settings.local_connection', 'local');
+        $connection = (new Settings)->getConnection()->getDatabaseName();
+        $remoteValue = settings('testSetValueToLocal');
+        $localValue = json_decode(Redis::connection('local')->hget('laravel_pds_settings' . $connection, 'testSetValueToLocal'), true);
+
+        $this->assertEquals('test_value_local', $localValue['value']);
+        $this->assertEquals('test_value_local', $remoteValue);
+        config(['padosoft-settings.local_connection' => null]);
+    }
+    #[Test]
+    public function assertLocalValueExpires()
+    {
+        Redis::connection('local')->flushdb();
+        config(['padosoft-settings.local_connection' => null]);
+        $model = new Settings();
+        $model->key = 'testExpireValueToLocal2';
+        $model->value = 'test_value_local';
+        $model->validation_rules = 'string';
+        $model->save();
+        config()->set('padosoft-settings.local_connection', 'local');
+        config()->set('padosoft-settings.local_expire', 5);
+        $connection = (new Settings)->getConnection()->getDatabaseName();
+        $remoteValue = (new SettingsManager())->get('testExpireValueToLocal2');
+        $localValue = json_decode(Redis::connection('local')->hget('laravel_pds_settings' . $connection, 'testExpireValueToLocal2'), true);
+
+        $this->assertEquals('test_value_local', $localValue['value']);
+        $this->assertEquals('test_value_local', $remoteValue);
+        sleep(10);
+        config(['padosoft-settings.local_connection' => null]);
+        $this->assertNull(Redis::connection('local')->hget('laravel_pds_settings' . $connection, 'testExpireValueToLocal2'));
     }
 
 }

@@ -54,7 +54,7 @@ abstract class TestCase extends Orchestra
         return [
             ServiceProvider::class,
             ValidatorServiceProvider::class,
-            \Lunaweb\RedisMock\Providers\RedisMockServiceProvider::class
+            \Padosoft\Laravel\Settings\Test\MyRedisMockServiceProvider::class
         ];
     }
 
@@ -89,6 +89,12 @@ abstract class TestCase extends Orchestra
             'prefix'   => '',
         ]);
         $app['config']->set('database.redis.client', 'mock');
+        $app['config']->set('database.redis.local', $app['config']->get('database.redis.default'));
+        $app['config']->set('database.redis.default.database', 0);
+        $app['config']->set('database.redis.default.host', 'remoteredis');
+        $app['config']->set('database.redis.local.host', 'localredis');
+        $app['config']->set('database.redis.local.port', 16379);
+        $app['config']->set('database.redis.local.database', 1);
         $app['config']->set('padosoft-settings.enabled', true);
         $app['config']->set('padosoft-settings.cast', ['isEmailList' => [
             'class' => \Padosoft\Laravel\Settings\Test\ListSemiColonEmailCast::class,
