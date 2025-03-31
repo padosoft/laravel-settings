@@ -47,6 +47,7 @@ class SettingsRedisRepository
         // se ho definito la connection locale aggiorno anche quella
         try {
             Redis::connection(config('padosoft-settings.local_connection'))->hset($hashname, $key, $value);
+            Redis::connection(config('padosoft-settings.local_connection'))->expire($hashname, config('padosoft-settings.local_expire'));
         } catch (\Exception $e) {
             Log::error($e->getMessage());
         }
@@ -56,20 +57,15 @@ class SettingsRedisRepository
     {
         $localValue = null;
 
-        //try {
+        try {
             // se ho definito la connection locale provo a recuperare da lì i valori
             if (config('padosoft-settings.local_connection') !== null) {
                 $localValue = Redis::connection(config('padosoft-settings.local_connection'))->hget($hashname, $key);
             }
-        //} catch (\Exception $e) {
-        //    Log::error($e->getMessage());
-        //}
-        /*var_dump($hashname);
-        var_dump($key);
-        var_dump(Redis::connection('local')->hget('laravel_pds_settings', 'testValueFromLocal'));
-        var_dump(config('padosoft-settings.local_connection'));
-        var_dump($localValue);
-        exit;*/
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+        }
+
         // se ho trovato il valore locale lo ritorno
         if ($localValue !== null) {
             return $localValue;
