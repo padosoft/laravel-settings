@@ -44,7 +44,7 @@ class SettingsManager
     protected function checkExpire()
     {
         // if local timeout has expired clean it
-        if ($this->last_retrived_settings > 0 && ($this->last_retrived_settings + config('padosoft-settings.local_expire', 300)) > time()) {
+        if ($this->last_retrived_settings > 0 && ($this->last_retrived_settings + config('padosoft-settings.local_expire', 300)) <= time()) {
             SettingsRedisRepository::delLocal($this->redis_key);
         }
 
