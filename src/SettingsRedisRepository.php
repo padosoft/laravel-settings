@@ -22,6 +22,18 @@ class SettingsRedisRepository
         }
     }
 
+    public static function delLocal($key)
+    {
+        if (config('padosoft-settings.local_connection') === null) {
+            return;
+        }
+
+        try {
+            Redis::connection(config('padosoft-settings.local_connection'))->del($key);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+        }
+    }
     public static function del($key)
     {
         Redis::connection(config('padosoft-settings.default_connection'))->del($key);
