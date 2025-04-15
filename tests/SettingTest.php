@@ -99,6 +99,92 @@ class SettingTest extends TestCase
         $this->assertNotEquals(settings()->getModel('test', true)->value, 'value2');
     }
 
+    public static function validationdataProvider(): array
+    {
+        return [
+            'Email in numero' => [
+                'EmailPino',
+                'Numero di email',
+                'numeric',
+                'pino@lapianta.com',
+                null,
+                true
+            ],
+
+            'Email in email' => [
+                'Email1',
+                'Email',
+                'email',
+                'pino@lapianta.com',
+                'pino@lapianta.com',
+                false
+            ],
+            'Empty in email' => [
+                'Email1',
+                'Email',
+                'email',
+                '',
+                'pino@lapianta2.com',
+                true
+            ],
+            'Valore Not nullable' => [
+                'EmailNotNullable',
+                'Email',
+                'isEmailList',
+                '',
+                'pino@lapianta2.com',
+                true
+            ],
+            'Valore nullable' => [
+                'EmailNullable',
+                'Email',
+                'nullable|email',
+                null,
+                '',
+                false
+            ],
+            'Valore nullable2' => [
+                'EmailNullable2',
+                'Email',
+                'nullable|email',
+                '',
+                '',
+                false
+            ],
+            'Numero in email' => [
+                'NumeroPrincipale',
+                'Numero in email',
+                'email',
+                '5',
+                'pino@lapianta.com',
+                true
+            ],
+            'Numero in numero' => [
+                'NumeroSecondario',
+                'Numero in numero',
+                'numeric',
+                45,
+                45,
+                false
+            ],
+            'regex' => [
+                'regex',
+                'regex',
+                'regex:/(^[0-9,]+$)|(^.{0}$)/',
+                '17,15',
+                '17,15',
+                false
+            ],
+            'invalid_rule' => [
+                'invalid_rule',
+                'invalid_rule',
+                'invalid_rule',
+                '17,15',
+                '17,15',
+                false
+            ],
+        ];
+    }
 
     public static function newdataProvider(): array
     {
@@ -176,9 +262,31 @@ class SettingTest extends TestCase
                 '17,15',
                 false
             ],
+            'invalid_rule' => [
+                'invalid_rule',
+                'invalid_rule',
+                'invalid_rule',
+                '17,15',
+                '17,15',
+                false
+            ],
         ];
     }
 
+    #[Test]
+    #[DataProvider('validationdataProvider')]
+    public function test_canValidate($key, $descr, $validation_rule, $value, $valueSupport, $exception)
+    {
+        if ($exception) {
+            $this->expectException(ValidationException::class);
+            $this->expectExceptionCode(0);
+            //$this->expectExceptionMessage(__('validation.'.$validation_rule,['attribute'=>'value']));//"Value: {$value} is not valid.");
+
+        }
+
+        $valueValidated = settings()->validate($key, $value, $validation_rule, true, true, true);
+        $this->assertEquals($valueSupport, $valueValidated);
+    }
 
     #[Test]
     #[DataProvider('newdataProvider')]
@@ -251,7 +359,6 @@ class SettingTest extends TestCase
             $this->assertDatabaseMissing('settings', ['key' => 'prova.2']);
         }
     }
-
 
     #[Test]
     #[DataProvider('newdataProvider')]

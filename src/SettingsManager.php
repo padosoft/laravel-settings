@@ -815,6 +815,8 @@ class SettingsManager
             Log::error($key . ' :: ' . $e->getMessage());
 
             return null;
+        } catch (\BadMethodCallException $ex) {
+
         } catch (\Exception $ex) {
             if ($throw) {
                 throw $ex;
@@ -822,10 +824,16 @@ class SettingsManager
             Log::error($key . ' :: ' . $ex->getMessage());
             return null;
         }
-        /*} catch (\Exception $error) {
+        try {
+            //Effettua un cast dinamico del valore
+            if ($cast === false) {
+                return $value;
+            }
+            return SettingsManager::cast($value, $type);
+        } catch (\Exception $error) {
             Log::error('Validation not exists on key ' . $key . ':' . serialize($rule));
             Log::error($error->getMessage());
-        }*/
+        }
 
         //return null;
     }
