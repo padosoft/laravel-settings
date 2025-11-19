@@ -18,7 +18,7 @@ class SettingsRedisRepository
         try {
             Redis::connection(config('padosoft-settings.local_connection'))->hdel($hashname, $key);
         } catch (\Exception $e) {
-            Log::error($e->getMessage());
+            static::logError($e->getMessage());
         }
     }
 
@@ -31,7 +31,7 @@ class SettingsRedisRepository
         try {
             Redis::connection(config('padosoft-settings.local_connection'))->del($key);
         } catch (\Exception $e) {
-            Log::error($e->getMessage());
+            static::logError($e->getMessage());
         }
     }
     public static function del($key)
@@ -45,7 +45,7 @@ class SettingsRedisRepository
         try {
             Redis::connection(config('padosoft-settings.local_connection'))->del($key);
         } catch (\Exception $e) {
-            Log::error($e->getMessage());
+            static::logError($e->getMessage());
         }
     }
 
@@ -61,7 +61,7 @@ class SettingsRedisRepository
             Redis::connection(config('padosoft-settings.local_connection'))->hset($hashname, $key, $value);
             Redis::connection(config('padosoft-settings.local_connection'))->expire($hashname, config('padosoft-settings.local_expire'));
         } catch (\Exception $e) {
-            Log::error($e->getMessage());
+            static::logError($e->getMessage());
         }
     }
 
@@ -75,7 +75,7 @@ class SettingsRedisRepository
                 $localValue = Redis::connection(config('padosoft-settings.local_connection'))->hget($hashname, $key);
             }
         } catch (\Exception $e) {
-            Log::error($e->getMessage());
+            static::logError($e->getMessage());
         }
 
         // se ho trovato il valore locale lo ritorno
@@ -93,7 +93,7 @@ class SettingsRedisRepository
             Redis::connection(config('padosoft-settings.local_connection'))->hset($hashname, $key, $remoteValue);
             Redis::connection(config('padosoft-settings.local_connection'))->expire($hashname, config('padosoft-settings.local_expire'));
         } catch (\Exception $e) {
-            Log::error($e->getMessage());
+            static::logError($e->getMessage());
         }
 
         return $remoteValue;
@@ -109,7 +109,7 @@ class SettingsRedisRepository
                 $localValue = Redis::connection(config('padosoft-settings.local_connection'))->hgetall($hashname);
             }
         } catch (\Exception $e) {
-            Log::error($e->getMessage());
+            static::logError($e->getMessage());
         }
         // se ho trovato il valore locale lo ritorno
         if ($localValue !== null) {
@@ -128,9 +128,18 @@ class SettingsRedisRepository
             }
             Redis::connection(config('padosoft-settings.local_connection'))->expire($hashname, config('padosoft-settings.local_expire'));
         } catch (\Exception $e) {
-            Log::error($e->getMessage());
+            static::logError($e->getMessage());
         }
 
         return $remoteValue;
+    }
+
+    public static function logError(string $message): void
+    {
+        if (! (config('padosoft-settings.enable_redis_log_failure') ?? false) ) {
+            return;
+        }
+
+        Log::error($message);
     }
 }
