@@ -22,6 +22,15 @@ class ServiceProvider extends \Illuminate\Support\ServiceProvider
         $this->publishes([
             __DIR__ . '/Config/config.php' => config_path('padosoft-settings.php')
         ]);
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                Commands\EncryptionAuditCommand::class,
+                Commands\EncryptionMigrateCommand::class,
+                Commands\EncryptionRotateCommand::class,
+            ]);
+        }
+
         settings::overrideConfig();
     }
 

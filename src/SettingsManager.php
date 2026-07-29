@@ -7,13 +7,12 @@
 namespace Padosoft\Laravel\Settings;
 
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Crypt;
-use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
-use Padosoft\Laravel\Settings\Exceptions\DecryptException as SettingsDecryptException;
+use Padosoft\Laravel\Settings\Encryption\SettingsCipher;
+use Padosoft\Laravel\Settings\Exceptions\EncryptionException;
 
 class SettingsManager
 {
@@ -76,7 +75,7 @@ class SettingsManager
             $redisValue = json_decode($redisValue, true);
         }
         if (is_array($redisValue) && count($redisValue)>0) {
-            $this->settings[$key] = $redisValue;
+            $this->settings[$key] = $this->normalizeRecord($redisValue);
             return $this->getMemoryValue($key, false, $cast);
         }
         $dbValue = Settings::where('key', $key)->first();
@@ -85,12 +84,21 @@ class SettingsManager
         }
 
         try {
-            $this->validate($key, $dbValue->value, $dbValue->validation_rules, $validate, false, true);
+            $this->validate($key, $this->cipher()->fromStorage($key, $dbValue->getStoredValue()), $dbValue->validation_rules, $validate, false, true);
+        } catch (EncryptionException $exception) {
+            // Fail closed. Degradare un segreto a $default farebbe partire le
+            // integrazioni con una credenziale vuota, senza alcun segnale.
+            throw $exception;
         } catch (\Throwable $exception) {
             return $default;
         }
-        SettingsRedisRepository::hset($this->redis_key, $key, $dbValue->toJson());
-        $this->settings[$key] = $dbValue->toArray();
+
+        // Il raw del database e' anche il raw della cache. Fino alla 6.x qui si
+        // usavano toJson()/toArray(), che applicano l'accessor: il valore
+        // decifrato finiva in Redis, condiviso fra tutti i pod.
+        $record = $this->normalizeRecord($dbValue->toCacheArray());
+        $this->settings[$key] = $record;
+        SettingsRedisRepository::hset($this->redis_key, $key, json_encode($record));
 
         //Restituisce il valore dalla memoria effettuando il cast e validazione
         return $this->getMemoryValue($key, false, $cast);
@@ -139,20 +147,86 @@ class SettingsManager
         if (!array_key_exists($key, $this->settings)) {
             return null;
         }
-        $validation_rule = $this->settings[$key]['validation_rules'];
-        $value = $this->validate($key, $this->settings[$key]['value'], $validation_rule, $validate, $cast);
-        if (
-            !is_array(config('padosoft-settings.encrypted_keys')) || !in_array(
-                $key,
-                config('padosoft-settings.encrypted_keys')
-            )
-        ) {
-            return $value;
+        $validation_rule = $this->settings[$key]['validation_rules'] ?? null;
+
+        // Prima si decifra, poi si valida e si casta. Fino alla 6.x l'ordine era
+        // invertito: il cast veniva applicato al ciphertext e, con una regola
+        // numerica, lo distruggeva prima ancora del tentativo di decifratura.
+        $plain = $this->cipher()->fromStorage($key, $this->settings[$key]['value'] ?? null);
+
+        return $this->validate($key, $plain, $validation_rule, $validate, $cast);
+    }
+
+    /**
+     * Unico punto di cifratura/decifratura del package.
+     */
+    public function cipher(): SettingsCipher
+    {
+        return SettingsCipher::instance();
+    }
+
+    /**
+     * Garantisce che un record in cache abbia sempre le tre chiavi attese.
+     *
+     * getAttributes() restituisce solo le colonne effettivamente valorizzate:
+     * un setting creato con la sola coppia key/value non porterebbe con se'
+     * validation_rules e config_override, e i consumatori della cache
+     * andrebbero in "undefined array key".
+     *
+     * @param array<string, mixed> $record
+     * @return array<string, mixed>
+     */
+    protected function normalizeRecord(array $record): array
+    {
+        return $record + [
+            'value' => null,
+            'validation_rules' => null,
+            'config_override' => null,
+        ];
+    }
+
+    /**
+     * Valore in chiaro attualmente in memoria, senza mai lanciare.
+     * Serve al confronto semantico di set().
+     *
+     * @return string|null
+     */
+    protected function currentPlainValue($key)
+    {
+        if (!array_key_exists($key, $this->settings)) {
+            return null;
         }
+
+        $inspection = $this->cipher()->inspect($key, $this->settings[$key]['value'] ?? null);
+
+        return $inspection['ok'] ? $inspection['value'] : null;
+    }
+
+    /**
+     * Allinea la cache alla riga appena scritta sul database.
+     *
+     * Sostituisce la vecchia chiamata a set() dagli hook del Model: passando da
+     * set() il valore, gia' cifrato dal mutator, veniva letto decifrato
+     * dall'accessor e poi ri-cifrato, producendo il doppio strato.
+     */
+    public function syncFromModel(Settings $model): void
+    {
+        $key = $model->key;
+        if ($key === null || $key === '') {
+            return;
+        }
+
+        $record = $this->normalizeRecord($model->toCacheArray());
+        $this->settings[$key] = $record;
+        unset($this->dirties[$key]);
+
         try {
-            return Crypt::decrypt($value);
-        } catch (DecryptException $e) {
-            throw new SettingsDecryptException('unable to decrypt value.Maybe you have changed your app.key or padosoft-settings.encrypted_keys without updating database values');
+            SettingsRedisRepository::hset($this->redis_key, $key, json_encode($record));
+        } catch (\Throwable $exception) {
+            Log::error('[padosoft-settings] impossibile allineare la cache dopo la scrittura.', [
+                'key' => $key,
+                'exception' => $exception->getMessage(),
+            ]);
         }
     }
 
@@ -196,42 +270,47 @@ class SettingsManager
      */
     public function set($key, $value, $validation_rule = null, $config_override = null)
     {
-        //$this->validate($value, $validation_rule);
-        if (
-            is_array(config('padosoft-settings.encrypted_keys')) && in_array(
-                $key,
-                config('padosoft-settings.encrypted_keys')
-            )
-        ) {
-            $value = Crypt::encrypt($value);
-        }
-        if (array_key_exists($key, $this->settings) && $this->settings[$key]['value'] === $value
-            && $this->settings[$key]['validation_rules'] === $validation_rule) {
-            return $this;
-        }
         if ($validation_rule === null && array_key_exists($key, $this->settings)) {
-            $validation_rule = $this->settings[$key]['validation_rules'];
+            $validation_rule = $this->settings[$key]['validation_rules'] ?? null;
         }
+
+        // La validazione gira sul valore IN CHIARO. Fino alla 6.x girava dopo la
+        // cifratura: qualunque regola diversa da string falliva sul ciphertext e
+        // l'eccezione veniva inghiottita, perdendo la scrittura in silenzio.
         try {
             $this->validate($key, $value, $validation_rule, true, false, true);
         } catch (\Exception $exception) {
             return $this;
         }
 
+        // Confronto semantico sul plaintext: l'IV e' casuale, quindi due
+        // cifrature dello stesso valore non coincidono mai e un confronto sul
+        // raw marcherebbe la riga come modificata a ogni singola richiesta.
+        if (array_key_exists($key, $this->settings)
+            && $this->currentPlainValue($key) === $value
+            && ($this->settings[$key]['validation_rules'] ?? null) === $validation_rule) {
+            return $this;
+        }
+
+        $raw = $this->cipher()->toStorage($key, $value);
+
         if (!array_key_exists($key, $this->settings)) {
-            $this->dirties[$key] = $value;
+            $this->dirties[$key] = $raw;
         } else {
             $this->dirties[$key] = $this->settings[$key]['value'];
         }
-        $this->settings[$key]['value'] = $value;
+        $this->settings[$key]['value'] = $raw;
         $this->settings[$key]['config_override'] = $config_override;
         $this->settings[$key]['validation_rules'] = $validation_rule;
         try {
             SettingsRedisRepository::hset($this->redis_key, $key, json_encode($this->settings[$key]));
         } catch (\Throwable $exception) {
-            Log::error('Unable to set value ' . $value . ' to ' . $key . ': ' . $exception->getMessage());
+            // Nessun valore nel messaggio: questo log e' un sink di segreti.
+            Log::error('[padosoft-settings] impossibile scrivere la key in cache.', [
+                'key' => $key,
+                'exception' => $exception->getMessage(),
+            ]);
         }
-
 
         return $this;
     }
@@ -251,8 +330,11 @@ class SettingsManager
                 throw new \Exception("Failed to update settings key '" . $key . " on Database. This key does not exist. You must create the key before you can perform an update.");
             }
 
-            $model->validation_rules = $valore['validation_rules'];
-            $model->value = $valore['value'];
+            $model->validation_rules = $valore['validation_rules'] ?? null;
+            // Il valore in memoria e' gia' nel formato di persistenza: passare da
+            // $model->value lo farebbe ricifrare dal mutator, producendo il
+            // doppio strato che affliggeva le 6.x.
+            $model->setStoredValue($valore['value']);
 
             if (!$model->isDirty()) {
                 continue;
@@ -350,15 +432,31 @@ class SettingsManager
             ->get();
 
         foreach ($settings as $setting) {
+            $record = $this->normalizeRecord($setting->toCacheArray());
 
             try {
-                $this->validate($setting->key, $setting->value, $setting->validation_rules, true, false, true);
+                $this->validate(
+                    $setting->key,
+                    $this->cipher()->fromStorage($setting->key, $record['value'] ?? null),
+                    $setting->validation_rules,
+                    true,
+                    false,
+                    true
+                );
             } catch (\Throwable $exception) {
-                Log::warning('Setting ' . $setting->key . ' has an invalid value (' . $setting->value . '): ' . $exception->getMessage());
+                // Il valore NON entra nel messaggio: fino alla 6.x veniva loggato
+                // in chiaro, e per una key cifrata era il segreto stesso.
+                // La key non viene messa in cache: la lettura successiva rifara'
+                // il percorso da database e fallira' chiusa se il problema e' la
+                // decifratura, invece di degradare al default in silenzio.
+                Log::warning('[padosoft-settings] setting con valore non valido, escluso dal preload.', [
+                    'key' => $setting->key,
+                    'reason' => $exception->getMessage(),
+                ]);
                 continue;
             }
-            $this->settings[$setting->key] = $setting->toArray();
-            SettingsRedisRepository::hset($this->redis_key, $setting->key, $setting->toJson());
+            $this->settings[$setting->key] = $record;
+            SettingsRedisRepository::hset($this->redis_key, $setting->key, json_encode($record));
         }
         $this->last_retrived_settings = time();
 
@@ -373,19 +471,36 @@ class SettingsManager
         $this->loadOnStartUp();
         foreach ($this->settings as $chiave => $setting) {
 
-            if ($setting['config_override'] === null || $setting['config_override'] === '') {
+            if (($setting['config_override'] ?? null) === null || $setting['config_override'] === '') {
                 continue;
             }
-            $keys = explode('|', $setting['config_override']);
-            foreach ($keys as $key) {
-                if (\is_bool(config($key))) {
-                    $value = (bool)$setting['value'];
-                    $validation_rules = 'boolean';
-                }
-
-                config([$key => $setting['value']]);
+            // Una key cifrata che sovrascrive la config finirebbe in chiaro
+            // dentro config(), e quindi potenzialmente in bootstrap/cache/config.php
+            // e in ogni dump di debug. Per default si rifiuta la combinazione
+            // invece di propagare il segreto; chi ne ha davvero bisogno la abilita.
+            if ($this->cipher()->shouldEncrypt($chiave)
+                && !config('padosoft-settings.encryption.allow_config_override', false)) {
+                Log::warning('[padosoft-settings] config_override ignorato su una key cifrata.', [
+                    'key' => $chiave,
+                ]);
+                continue;
             }
 
+            // inspect() invece di fromStorage(): questo metodo gira nel boot del
+            // ServiceProvider, un'eccezione qui impedirebbe l'avvio dell'app.
+            $inspection = $this->cipher()->inspect($chiave, $setting['value'] ?? null);
+            if (!$inspection['ok']) {
+                Log::warning('[padosoft-settings] config_override non applicato: valore non leggibile.', [
+                    'key' => $chiave,
+                    'reason' => $inspection['reason'],
+                ]);
+                continue;
+            }
+
+            $keys = explode('|', $setting['config_override']);
+            foreach ($keys as $key) {
+                config([$key => $inspection['value']]);
+            }
         }
         return true;
     }
@@ -623,7 +738,8 @@ class SettingsManager
                         //Log::channel('console')->info($type . '    Rule:' . implode(' | ', $rule));
                     }
                 } catch (\Exception $e) {
-                    echo($e->getMessage());
+                    // Niente echo: finirebbe nel body della response HTTP.
+                    Log::channel('console')->warning('[padosoft-settings] ' . $e->getMessage());
                 }
             }
             Log::channel('console')->info('Set validation_rule ' . $logValidate);
